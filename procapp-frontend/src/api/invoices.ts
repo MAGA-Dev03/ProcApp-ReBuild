@@ -163,15 +163,17 @@ export async function clearFinanceSubmission(id: number, _updatedByUserId: numbe
 }
 
 export async function recordGrn(id: number, payload: RecordGrnPayload): Promise<Invoice> {
-  const raw = await http<any>(`/api/invoices/${id}/grn`, {
+  await http<any>(`/api/invoices/${id}/grn`, {
     method: 'POST',
     body: { grnNumber: payload.grnNumber },
   })
-  // pioNumber/grnReceivedDate aren't part of the dedicated /grn endpoint's
-  // contract — if the UI relies on setting them together, fold them into
-  // a follow-up updateInvoice call at the call site, or extend the
-  // backend's GrnRequest DTO to accept them if this comes up.
-  return adaptInvoice(raw)
+  // grnReceivedDate/pioNumber aren't part of the dedicated /grn endpoint's
+  // contract, so fold them into a follow-up updateInvoice call.
+  return updateInvoice(id, {
+    grnReceivedDate: payload.grnReceivedDate,
+    pioNumber: payload.pioNumber,
+    updatedByUserId: payload.updatedByUserId,
+  })
 }
 
 export async function checkDuplicateInvoiceNumber(params: {
