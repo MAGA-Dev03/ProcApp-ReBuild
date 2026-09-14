@@ -127,10 +127,15 @@ export function InvoiceReportPage() {
     placeholderData: (previous) => previous,
   })
 
+  const [financeReportParams, setFinanceReportParams] = useState<Omit<
+    ListInvoicesParams,
+    'page' | 'size'
+  > | null>(null)
+
   const financeReportQuery = useQuery({
-    queryKey: ['invoices', 'finance-report', financeReportListNo],
-    queryFn: () => listInvoices({ listNo: financeReportListNo!, size: 500 }),
-    enabled: financeReportListNo !== null,
+    queryKey: ['invoices', 'finance-report', financeReportParams],
+    queryFn: () => listInvoices({ ...financeReportParams!, size: 500 }),
+    enabled: financeReportParams !== null,
   })
 
   function updateFilters(next: ReportFiltersValue) {
@@ -232,7 +237,10 @@ export function InvoiceReportPage() {
             size="sm"
             className="ml-auto"
             disabled={!filters.listNo}
-            onClick={() => setFinanceReportListNo(filters.listNo)}
+            onClick={() => {
+              setFinanceReportListNo(filters.listNo)
+              setFinanceReportParams(toListInvoicesParams(filters))
+            }}
           >
             Generate Finance Report
           </Button>
@@ -260,7 +268,12 @@ export function InvoiceReportPage() {
       <FinanceReportModal
         listNo={financeReportListNo}
         invoices={financeReportQuery.data?.content ?? []}
-        onOpenChange={(open) => !open && setFinanceReportListNo(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setFinanceReportListNo(null)
+            setFinanceReportParams(null)
+          }
+        }}
       />
     </div>
   )
