@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import type { SortingState } from '@tanstack/react-table'
 import { Clipboard, FileSpreadsheet, FileText, Printer } from 'lucide-react'
 import {
   listAllProjects,
@@ -23,6 +24,7 @@ import {
   printRows,
   toReportRow,
 } from '@/features/invoices/reportExport'
+import { toSortParam } from '@/features/invoices/sortParam'
 import { createSiteKeeperColumns } from './siteKeeperColumns'
 
 const PAGE_SIZE = 10
@@ -46,6 +48,7 @@ export function SiteKeeperPage() {
   const debouncedMonth = useDebouncedValue(monthFilter, 300)
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search, 300)
+  const [sorting, setSorting] = useState<SortingState>([{ id: 'receivedDate', desc: true }])
   const [pageIndex, setPageIndex] = useState(0)
   const [isExporting, setIsExporting] = useState(false)
 
@@ -79,7 +82,7 @@ export function SiteKeeperPage() {
       'invoices',
       'site-keeper',
       currentUser?.id,
-      { projectFilter, supplierFilter, monthRange, debouncedSearch, pageIndex },
+      { projectFilter, supplierFilter, monthRange, debouncedSearch, sorting, pageIndex },
     ],
     queryFn: () =>
       listInvoicesForSiteKeeper(currentUser!.id, {
@@ -88,6 +91,7 @@ export function SiteKeeperPage() {
         receivedDateFrom: monthRange?.from,
         receivedDateTo: monthRange?.to,
         search: debouncedSearch || undefined,
+        sort: toSortParam(sorting),
         page: pageIndex,
         size: PAGE_SIZE,
       }),
@@ -125,6 +129,7 @@ export function SiteKeeperPage() {
       receivedDateFrom: monthRange?.from,
       receivedDateTo: monthRange?.to,
       search: debouncedSearch || undefined,
+      sort: toSortParam(sorting),
       page: 0,
       size: 5000,
     })
@@ -234,6 +239,11 @@ export function SiteKeeperPage() {
           pageIndex={pageIndex}
           pageSize={PAGE_SIZE}
           onPageChange={setPageIndex}
+          sorting={sorting}
+          onSortingChange={(value) => {
+            setSorting(value)
+            setPageIndex(0)
+          }}
           searchValue={search}
           onSearchChange={(value) => {
             setSearch(value)

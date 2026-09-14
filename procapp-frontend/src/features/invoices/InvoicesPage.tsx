@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import type { SortingState } from '@tanstack/react-table'
 import { Ban, CheckCircle2, FileCheck, Pencil, Trash2 } from 'lucide-react'
 import {
   ApiError,
@@ -29,6 +30,7 @@ import { InvoiceFormCard } from './InvoiceFormCard'
 import { InvoicesFilters } from './InvoicesFilters'
 import type { InvoiceFormValues } from './invoiceFormSchema'
 import { monthToRange, toCreatePayload, toUpdatePayload } from './invoiceMutationHelpers'
+import { toSortParam } from './sortParam'
 
 const PAGE_SIZE = 10
 
@@ -46,6 +48,7 @@ export function InvoicesPage() {
   const [monthFilter, setMonthFilter] = useState('')
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search, 300)
+  const [sorting, setSorting] = useState<SortingState>([{ id: 'receivedDate', desc: true }])
   const [pageIndex, setPageIndex] = useState(0)
 
   const projectsQuery = useQuery({
@@ -72,7 +75,7 @@ export function InvoicesPage() {
     queryKey: [
       'invoices',
       'pending-finance',
-      { projectFilter, supplierFilter, monthRange, debouncedSearch, pageIndex },
+      { projectFilter, supplierFilter, monthRange, debouncedSearch, sorting, pageIndex },
     ],
     queryFn: () =>
       listInvoices({
@@ -82,6 +85,7 @@ export function InvoicesPage() {
         receivedDateFrom: monthRange?.from,
         receivedDateTo: monthRange?.to,
         search: debouncedSearch || undefined,
+        sort: toSortParam(sorting),
         page: pageIndex,
         size: PAGE_SIZE,
       }),
@@ -209,6 +213,11 @@ export function InvoicesPage() {
           pageIndex={pageIndex}
           pageSize={PAGE_SIZE}
           onPageChange={setPageIndex}
+          sorting={sorting}
+          onSortingChange={(value) => {
+            setSorting(value)
+            setPageIndex(0)
+          }}
           searchValue={search}
           onSearchChange={(value) => {
             setSearch(value)

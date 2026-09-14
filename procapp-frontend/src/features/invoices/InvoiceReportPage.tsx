@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLocation } from 'react-router-dom'
 import { toast } from 'sonner'
+import type { SortingState } from '@tanstack/react-table'
 import { Clipboard, FileSpreadsheet, FileText, Printer } from 'lucide-react'
 import {
   getDistinctListNumbers,
@@ -25,6 +26,7 @@ import {
   toReportRow,
 } from './reportExport'
 import { ReportFilters, type ReportFiltersValue } from './ReportFilters'
+import { toSortParam } from './sortParam'
 
 const PAGE_SIZE = 15
 
@@ -80,6 +82,7 @@ export function InvoiceReportPage() {
     listNo: initialListNo,
   })
   const debouncedFilters = useDebouncedValue(filters, 300)
+  const [sorting, setSorting] = useState<SortingState>([{ id: 'receivedDate', desc: true }])
   const [pageIndex, setPageIndex] = useState(0)
   const [financeReportListNo, setFinanceReportListNo] = useState<string | null>(null)
   const [isExporting, setIsExporting] = useState(false)
@@ -113,8 +116,14 @@ export function InvoiceReportPage() {
   const queryParams = toListInvoicesParams(debouncedFilters)
 
   const invoicesQuery = useQuery({
-    queryKey: ['invoices', 'report', queryParams, pageIndex],
-    queryFn: () => listInvoices({ ...queryParams, page: pageIndex, size: PAGE_SIZE }),
+    queryKey: ['invoices', 'report', queryParams, sorting, pageIndex],
+    queryFn: () =>
+      listInvoices({
+        ...queryParams,
+        sort: toSortParam(sorting),
+        page: pageIndex,
+        size: PAGE_SIZE,
+      }),
     placeholderData: (previous) => previous,
   })
 
@@ -130,7 +139,12 @@ export function InvoiceReportPage() {
   }
 
   async function fetchAllFilteredRows() {
-    const page = await listInvoices({ ...toListInvoicesParams(filters), page: 0, size: 5000 })
+    const page = await listInvoices({
+      ...toListInvoicesParams(filters),
+      sort: toSortParam(sorting),
+      page: 0,
+      size: 5000,
+    })
     return page.content.map(toReportRow)
   }
 
@@ -231,6 +245,11 @@ export function InvoiceReportPage() {
           pageIndex={pageIndex}
           pageSize={PAGE_SIZE}
           onPageChange={setPageIndex}
+          sorting={sorting}
+          onSortingChange={(value) => {
+            setSorting(value)
+            setPageIndex(0)
+          }}
           getRowId={(row) => String(row.id)}
           isLoading={invoicesQuery.isLoading}
           isError={invoicesQuery.isError}

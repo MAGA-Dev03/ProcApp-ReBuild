@@ -26,7 +26,7 @@ export function createSiteKeeperColumns(
       cell: ({ row }) => <span className="whitespace-nowrap">{row.original.supplier.name}</span>,
     },
     { accessorKey: 'invoiceNumber', header: 'Invoice No', enableSorting: false },
-    { accessorKey: 'receivedDate', header: 'Received Date', enableSorting: false },
+    { accessorKey: 'receivedDate', header: 'Received Date' },
     { accessorKey: 'purchaseOrderNumber', header: 'PO Number', enableSorting: false },
     {
       accessorKey: 'value',

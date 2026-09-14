@@ -37,7 +37,6 @@ export const invoiceColumns: ColumnDef<InvoiceWithRelations, unknown>[] = [
   {
     accessorKey: 'receivedDate',
     header: 'Received Date',
-    enableSorting: false,
   },
   {
     accessorKey: 'purchaseOrderNumber',

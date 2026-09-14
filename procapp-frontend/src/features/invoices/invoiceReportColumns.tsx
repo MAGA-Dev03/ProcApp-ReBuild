@@ -50,8 +50,8 @@ export const invoiceReportColumns: ColumnDef<InvoiceWithRelations, unknown>[] = 
     cell: ({ row }) => <span className="whitespace-nowrap">{row.original.supplier.name}</span>,
   },
   { accessorKey: 'invoiceNumber', header: 'Invoice No', enableSorting: false },
-  { accessorKey: 'invoiceDate', header: 'Invoice Date', enableSorting: false },
-  { accessorKey: 'receivedDate', header: 'Received Date', enableSorting: false },
+  { accessorKey: 'invoiceDate', header: 'Invoice Date' },
+  { accessorKey: 'receivedDate', header: 'Received Date' },
   { accessorKey: 'purchaseOrderNumber', header: 'PO Number', enableSorting: false },
   {
     accessorKey: 'value',
