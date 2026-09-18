@@ -206,7 +206,7 @@ export function AppLayout() {
         </main>
 
         <footer className="shrink-0 border-t border-border px-4 py-3 text-center text-xs text-muted-foreground">
-          Copyright © MAGA 2026. All rights reserved.
+          Copyright © MAGA IT 2026. All rights reserved.
         </footer>
       </div>
     </div>

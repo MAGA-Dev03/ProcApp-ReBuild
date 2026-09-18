@@ -16,6 +16,7 @@ import { DataTable } from '@/components/data-table'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/features/auth'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { formatCurrency } from '@/lib/format'
 import { invoiceColumns } from './invoiceColumns'
 import { InvoicesFilters } from './InvoicesFilters'
@@ -35,6 +36,8 @@ export function AddToFinancePage() {
   const [projectFilter, setProjectFilter] = useState('')
   const [supplierFilter, setSupplierFilter] = useState('')
   const [monthFilter, setMonthFilter] = useState('')
+  const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search, 300)
   const [pageIndex, setPageIndex] = useState(0)
 
   const [staged, setStaged] = useState<InvoiceWithRelations[]>([])
@@ -65,7 +68,7 @@ export function AddToFinancePage() {
     queryKey: [
       'invoices',
       'eligible-for-finance',
-      { projectFilter, supplierFilter, monthRange, pageIndex },
+      { projectFilter, supplierFilter, monthRange, debouncedSearch, pageIndex },
     ],
     queryFn: () =>
       listInvoices({
@@ -75,6 +78,7 @@ export function AddToFinancePage() {
         supplierId: supplierFilter ? Number(supplierFilter) : undefined,
         receivedDateFrom: monthRange?.from,
         receivedDateTo: monthRange?.to,
+        search: debouncedSearch || undefined,
         page: pageIndex,
         size: PAGE_SIZE,
       }),
@@ -160,6 +164,12 @@ export function AddToFinancePage() {
                 pageIndex={pageIndex}
                 pageSize={PAGE_SIZE}
                 onPageChange={setPageIndex}
+                searchValue={search}
+                onSearchChange={(value) => {
+                  setSearch(value)
+                  setPageIndex(0)
+                }}
+                searchPlaceholder="Search invoice #, PO number…"
                 getRowId={(row) => String(row.id)}
                 isLoading={eligibleQuery.isLoading}
                 isError={eligibleQuery.isError}
