@@ -36,6 +36,8 @@ public class InvoiceController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('" + RoleNames.PROCUREMENT + "', '" + RoleNames.PROCUREMENT_MANAGER
+            + "', '" + RoleNames.REPORT_USER + "', '" + RoleNames.SENIOR_MANAGER + "')")
     public PageResponse<InvoiceResponse> list(
             @RequestParam(required = false) Long projectId,
             @RequestParam(required = false) Long supplierId,
@@ -69,6 +71,8 @@ public class InvoiceController {
     }
 
     @GetMapping("/list-numbers")
+    @PreAuthorize("hasAnyRole('" + RoleNames.PROCUREMENT + "', '" + RoleNames.PROCUREMENT_MANAGER
+            + "', '" + RoleNames.REPORT_USER + "', '" + RoleNames.SENIOR_MANAGER + "')")
     public List<String> listNumbers() {
         return invoiceService.distinctListNumbers();
     }

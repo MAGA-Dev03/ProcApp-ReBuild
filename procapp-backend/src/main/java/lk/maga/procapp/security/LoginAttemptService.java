@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class LoginAttemptService {
 
     private static final int MAX_ATTEMPTS = 5;
-    private static final long LOCKOUT_DURATION_SECONDS = 15 * 60;
+    private static final long LOCKOUT_DURATION_SECONDS = 10 * 60;
 
     private static class Attempt {
         final AtomicInteger failures = new AtomicInteger(0);
