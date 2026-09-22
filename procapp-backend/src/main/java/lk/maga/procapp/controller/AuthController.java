@@ -7,6 +7,7 @@ import lk.maga.procapp.dto.RoleResponse;
 import lk.maga.procapp.dto.ProjectResponse;
 import lk.maga.procapp.security.CustomUserDetails;
 import lk.maga.procapp.security.JwtService;
+import lk.maga.procapp.security.LoginAttemptService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -28,14 +29,22 @@ public class AuthController {
 
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+    private final LoginAttemptService loginAttemptService;
 
-    public AuthController(AuthenticationManager authenticationManager, JwtService jwtService) {
+    public AuthController(AuthenticationManager authenticationManager, JwtService jwtService,
+                           LoginAttemptService loginAttemptService) {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
+        this.loginAttemptService = loginAttemptService;
     }
 
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+        if (loginAttemptService.isLocked(request.getEmail())) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                    "Too many failed login attempts. Please try again later.");
+        }
+
         Authentication authResult;
         try {
             authResult = authenticationManager.authenticate(
@@ -45,9 +54,11 @@ public class AuthController {
             // Deliberately identical response whether the password was
             // wrong OR the account is inactive — never let a login attempt
             // reveal which case it was.
+            loginAttemptService.recordFailure(request.getEmail());
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
         }
 
+        loginAttemptService.recordSuccess(request.getEmail());
         CustomUserDetails userDetails = (CustomUserDetails) authResult.getPrincipal();
         String token = jwtService.generateToken(userDetails);
         lk.maga.procapp.entity.User u = userDetails.getUser();

@@ -21,11 +21,16 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import java.time.OffsetDateTime;
 
 @Service
 public class UserService {
+
+    private static final int PASSWORD_MIN_LENGTH = 8;
+    private static final Pattern PASSWORD_HAS_LETTER = Pattern.compile("[A-Za-z]");
+    private static final Pattern PASSWORD_HAS_DIGIT = Pattern.compile("[0-9]");
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -64,6 +69,8 @@ public class UserService {
         }
         if (req.getPassword() == null || req.getPassword().isBlank()) {
             fieldErrors.put("password", "Password is required.");
+        } else {
+            validatePasswordStrength(req.getPassword(), fieldErrors);
         }
 
         Set<Role> roles = resolveRoles(req.getRoleIds(), fieldErrors);
@@ -99,6 +106,11 @@ public class UserService {
         Set<Role> roles = resolveRoles(req.getRoleIds(), fieldErrors);
         Set<Project> projects = resolveProjects(req.getProjectIds(), fieldErrors);
 
+        boolean changingPassword = req.getPassword() != null && !req.getPassword().isBlank();
+        if (changingPassword) {
+            validatePasswordStrength(req.getPassword(), fieldErrors);
+        }
+
         if (!fieldErrors.isEmpty()) {
             throw new ValidationException(fieldErrors);
         }
@@ -106,7 +118,7 @@ public class UserService {
         u.setName(req.getName());
         u.setEmail(req.getEmail());
         // Blank/omitted password = keep the existing hash untouched.
-        if (req.getPassword() != null && !req.getPassword().isBlank()) {
+        if (changingPassword) {
             u.setPasswordHash(passwordEncoder.encode(req.getPassword()));
         }
         u.setAllProjects(req.isAllProjects());
@@ -126,6 +138,11 @@ public class UserService {
             u.setName(req.getName());
         }
         if (req.getPassword() != null && !req.getPassword().isBlank()) {
+            Map<String, String> fieldErrors = new HashMap<>();
+            validatePasswordStrength(req.getPassword(), fieldErrors);
+            if (!fieldErrors.isEmpty()) {
+                throw new ValidationException(fieldErrors);
+            }
             u.setPasswordHash(passwordEncoder.encode(req.getPassword()));
         }
         // Deliberately nothing else is touched here — no roles, projects,
@@ -154,6 +171,14 @@ public class UserService {
             );
         }
         userRepository.delete(u);
+    }
+
+    private void validatePasswordStrength(String password, Map<String, String> fieldErrors) {
+        if (password.length() < PASSWORD_MIN_LENGTH) {
+            fieldErrors.put("password", "Password must be at least " + PASSWORD_MIN_LENGTH + " characters long.");
+        } else if (!PASSWORD_HAS_LETTER.matcher(password).find() || !PASSWORD_HAS_DIGIT.matcher(password).find()) {
+            fieldErrors.put("password", "Password must contain at least one letter and one number.");
+        }
     }
 
     private Set<Role> resolveRoles(Set<Long> roleIds, Map<String, String> fieldErrors) {
