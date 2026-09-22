@@ -66,6 +66,7 @@ public class SecurityConfig {
         config.setAllowedOrigins(List.of(allowedOrigins.split(",")));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        config.setExposedHeaders(List.of("Content-Disposition"));
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
@@ -101,6 +102,10 @@ public AuthenticationEntryPoint authenticationEntryPoint() {
     http
         .csrf(csrf -> csrf.disable())
         .cors(cors -> {})
+        .headers(headers -> headers
+            .contentTypeOptions(contentTypeOptions -> {})
+            .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'none'; frame-ancestors 'none'"))
+        )
         .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .exceptionHandling(ex -> ex
             .authenticationEntryPoint(entryPoint)

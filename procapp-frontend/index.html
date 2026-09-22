@@ -7,24 +7,15 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ProcApp — Invoice Management System</title>
-    <script>
-      // GitHub Pages SPA redirect: restores the path saved by public/404.html
-      ;(function (l) {
-        if (l.search[1] === 'p' && l.search[2] === '=') {
-          var decoded = l.search
-            .slice(1)
-            .split('&')
-            .map(function (s) {
-              return s.replace(/~and~/g, '&')
-            })
-          window.history.replaceState(
-            null,
-            null,
-            l.pathname.slice(0, -1) + decoded[0].slice(2) + (decoded[1] ? '?' + decoded[1].slice(2) : '') + l.hash,
-          )
-        }
-      })(window.location)
-    </script>
+    <!-- Blocks injected/attacker scripts from running in this origin (e.g. via a
+         stored-XSS payload) even if one slips past other defenses. Only 'self'
+         script/style sources and the known API origin are allowed; update
+         connect-src if the API origin changes. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' http://localhost:8080; object-src 'none'; base-uri 'self'; frame-ancestors 'self';"
+    />
+    <script src="/spa-redirect.js"></script>
   </head>
   <body>
     <div id="root"></div>

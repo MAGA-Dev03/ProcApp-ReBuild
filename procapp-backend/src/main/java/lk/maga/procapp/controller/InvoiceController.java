@@ -173,12 +173,11 @@ public class InvoiceController {
     ) throws java.io.IOException {
         java.nio.file.Path path = invoiceService.resolveAttachmentPath(id);
         org.springframework.core.io.Resource resource = new org.springframework.core.io.UrlResource(path.toUri());
-        String contentType = java.nio.file.Files.probeContentType(path);
-        if (contentType == null) contentType = "application/octet-stream";
 
         return org.springframework.http.ResponseEntity.ok()
-                .contentType(org.springframework.http.MediaType.parseMediaType(contentType))
-                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + path.getFileName() + "\"" )
+                .contentType(org.springframework.http.MediaType.APPLICATION_OCTET_STREAM)
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + path.getFileName() + "\"" )
+                .header("X-Content-Type-Options", "nosniff")
                 .body(resource);
 
     }

@@ -6,7 +6,7 @@ import type {
   Page,
   PageParams,
 } from '@/types'
-import { http, httpDownload, httpUpload } from './http'
+import { http, httpDownload, httpUpload, type DownloadedFile } from './http'
 
 export interface ListInvoicesParams extends PageParams {
   projectId?: number
@@ -107,9 +107,9 @@ export async function uploadInvoiceAttachment(
   return adaptInvoice(raw)
 }
 
-/** Fetches the attachment bytes for an invoice. Callers open the returned blob
- * in a new tab — the endpoint needs the bearer token so a direct link won't work. */
-export async function downloadInvoiceAttachment(id: number): Promise<Blob> {
+/** Fetches the attachment bytes for an invoice — the endpoint needs the bearer
+ * token so a direct link won't work. */
+export async function downloadInvoiceAttachment(id: number): Promise<DownloadedFile> {
   return httpDownload(`/api/invoices/${id}/attachment`)
 }
 
@@ -121,7 +121,7 @@ export async function markAttachmentViewed(id: number, _updatedByUserId: number)
 }
 
 /** Site-keeper variant of downloadInvoiceAttachment, scoped to the keeper's projects. */
-export async function downloadSiteKeeperAttachment(id: number): Promise<Blob> {
+export async function downloadSiteKeeperAttachment(id: number): Promise<DownloadedFile> {
   return httpDownload(`/api/site-keeper/invoices/${id}/attachment`)
 }
 

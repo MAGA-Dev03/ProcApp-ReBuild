@@ -106,10 +106,21 @@ export async function httpUpload<T>(path: string, file: File): Promise<T> {
   return data as T
 }
 
+export interface DownloadedFile {
+  blob: Blob
+  filename: string | null
+}
+
+function filenameFromContentDisposition(header: string | null): string | null {
+  if (!header) return null
+  const match = /filename="?([^";]+)"?/i.exec(header)
+  return match ? match[1] : null
+}
+
 /** Binary GET for authenticated downloads (invoice attachments). The endpoint
  * requires the bearer token, so a plain <a href> can't reach it — callers fetch
- * the blob here and open it via URL.createObjectURL. */
-export async function httpDownload(path: string): Promise<Blob> {
+ * the blob here and save it via URL.createObjectURL. */
+export async function httpDownload(path: string): Promise<DownloadedFile> {
   const token = getToken()
   const res = await fetch(`${BASE_URL}${path}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -121,5 +132,6 @@ export async function httpDownload(path: string): Promise<Blob> {
     throw new ApiError(data?.message ?? 'Download failed', res.status, data?.fieldErrors)
   }
 
-  return res.blob()
+  const filename = filenameFromContentDisposition(res.headers.get('Content-Disposition'))
+  return { blob: await res.blob(), filename }
 }
