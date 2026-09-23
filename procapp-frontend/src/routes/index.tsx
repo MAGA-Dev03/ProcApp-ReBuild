@@ -12,6 +12,7 @@ import { SiteKeeperPage } from '@/features/site-keeper'
 import { ProjectsPage } from '@/features/projects'
 import { SuppliersPage } from '@/features/suppliers'
 import { UsersPage } from '@/features/users'
+import { AuditLogPage } from '@/features/audit-log'
 import { StyleGuidePage } from '@/features/style-guide/StyleGuidePage'
 import { NAV_ITEMS } from './navConfig'
 
@@ -98,6 +99,14 @@ export const router = createBrowserRouter([
         element: (
           <RequireRole roles={rolesFor('/users')}>
             <UsersPage />
+          </RequireRole>
+        ),
+      },
+      {
+        path: 'audit-log',
+        element: (
+          <RequireRole roles={rolesFor('/audit-log')}>
+            <AuditLogPage />
           </RequireRole>
         ),
       },

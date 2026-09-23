@@ -21,6 +21,7 @@ export { seedSummary } from './mock'
 
 export {
   listUsers,
+  listAllUsers,
   getUser,
   createUser,
   updateUser,
@@ -73,6 +74,9 @@ export {
 } from './invoices'
 
 export { login } from './auth'
+
+export { listInvoiceAuditLog } from './auditLog'
+export type { ListAuditLogParams } from './auditLog'
 
 export type {
   ListInvoicesParams,

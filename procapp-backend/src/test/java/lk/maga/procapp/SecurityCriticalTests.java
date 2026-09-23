@@ -363,4 +363,45 @@ public class SecurityCriticalTests {
                 "An invoice submitted to finance must survive a delete attempt.");
     }
 
+    // --- F-13: every invoice mutation must produce an append-only audit row,
+    // readable only by ADMIN, and the row must survive even a hard delete of
+    // the invoice it describes. ---
+    @Test
+    void invoiceAuditLog_recordsChangesAndIsAdminOnly() throws Exception {
+        Role adminRole = roleRepository.findByNameIgnoreCase("ADMIN").orElseThrow();
+        Role procurementRole = roleRepository.findByNameIgnoreCase("PROCUREMENT").orElseThrow();
+        User admin = createUser("audit-admin-" + System.nanoTime() + "@test.local", Set.of(adminRole), true, null);
+        User procurementUser = createUser(
+                "audit-proc-" + System.nanoTime() + "@test.local", Set.of(procurementRole), true, null);
+        Project project = createProject("AUDITTEST-" + System.nanoTime());
+        Supplier supplier = createSupplier("BP-AUDIT-" + System.nanoTime());
+
+        Invoice invoice = createInvoice(project, supplier, procurementUser, null);
+        Long invoiceId = invoice.getId();
+
+        String adminToken = tokenFor(admin);
+        String procurementToken = tokenFor(procurementUser);
+
+        // A non-admin (even one who can fully manage invoices) must not be able to read the trail.
+        mockMvc.perform(get("/api/audit-log/invoices")
+                        .param("invoiceId", String.valueOf(invoiceId))
+                        .header("Authorization", "Bearer " + procurementToken))
+                .andExpect(status().isForbidden());
+
+        // Plain, untouched invoice -> hard delete is allowed (data-entry mistakes).
+        mockMvc.perform(delete("/api/invoices/" + invoiceId)
+                        .header("Authorization", "Bearer " + procurementToken))
+                .andExpect(status().isNoContent());
+        org.junit.jupiter.api.Assertions.assertTrue(invoiceRepository.findById(invoiceId).isEmpty());
+
+        // The audit row must survive the invoice it describes, and record who did it.
+        mockMvc.perform(get("/api/audit-log/invoices")
+                        .param("invoiceId", String.valueOf(invoiceId))
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].action").value("DELETE"))
+                .andExpect(jsonPath("$.content[0].performedByUserId").value(procurementUser.getId()));
+    }
+
 }

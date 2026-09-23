@@ -1,11 +1,15 @@
 package lk.maga.procapp.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lk.maga.procapp.dto.InvoiceRequest;
 import lk.maga.procapp.entity.Invoice;
+import lk.maga.procapp.entity.InvoiceAuditLog;
 import lk.maga.procapp.entity.Project;
 import lk.maga.procapp.entity.Supplier;
 import lk.maga.procapp.entity.User;
 import lk.maga.procapp.exception.ValidationException;
+import lk.maga.procapp.repository.InvoiceAuditLogRepository;
 import lk.maga.procapp.repository.InvoiceRepository;
 import lk.maga.procapp.repository.InvoiceSpecifications;
 import lk.maga.procapp.repository.ProjectRepository;
@@ -25,6 +29,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.List;
 import java.util.Set;
@@ -37,18 +42,24 @@ public class InvoiceService {
     private final ProjectRepository projectRepository;
     private final SupplierRepository supplierRepository;
     private final UserRepository userRepository;
+    private final InvoiceAuditLogRepository auditLogRepository;
+    private final ObjectMapper objectMapper;
 
     public InvoiceService(
             InvoiceRepository invoiceRepository,
             ProjectRepository projectRepository,
             SupplierRepository supplierRepository,
             UserRepository userRepository,
+            InvoiceAuditLogRepository auditLogRepository,
+            ObjectMapper objectMapper,
             FileStorageService fileStorageService
     ) {
         this.invoiceRepository = invoiceRepository;
         this.projectRepository = projectRepository;
         this.supplierRepository = supplierRepository;
         this.userRepository = userRepository;
+        this.auditLogRepository = auditLogRepository;
+        this.objectMapper = objectMapper;
         this.fileStorageService = fileStorageService;
     }
 
@@ -120,7 +131,9 @@ public class InvoiceService {
         inv.setCreatedAt(now);
         inv.setUpdatedAt(now);
 
-        return invoiceRepository.save(inv);
+        Invoice saved = invoiceRepository.save(inv);
+        recordAudit(saved.getId(), "CREATE", authorUserId, null, snapshot(saved));
+        return saved;
     }
 
     @Transactional
@@ -168,15 +181,19 @@ public class InvoiceService {
         User updatedBy = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid session user"));
 
+        Map<String, Object> before = snapshot(inv);
+
         applyFields(inv, req, project, supplier);
         inv.setUpdatedBy(updatedBy);
         inv.setUpdatedAt(OffsetDateTime.now());
 
-        return invoiceRepository.save(inv);
+        Invoice saved = invoiceRepository.save(inv);
+        recordAudit(id, "UPDATE", currentUserId, before, snapshot(saved));
+        return saved;
     }
 
     @Transactional
-    public void delete(Long id) {
+    public void delete(Long id, Long currentUserId) {
         // Hard delete — for data-entry mistakes only. Deliberately
         // different from cancel/activate (Phase 6), which is an
         // audit-preserving soft toggle instead. Once goods have been
@@ -192,6 +209,7 @@ public class InvoiceService {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Invoice has a goods-received record and cannot be deleted. Cancel it instead.");
         }
+        recordAudit(id, "DELETE", currentUserId, snapshot(inv), null);
         invoiceRepository.delete(inv);
     }
 
@@ -204,6 +222,45 @@ public class InvoiceService {
 
     private boolean isProcurementManager(Collection<? extends GrantedAuthority> authorities) {
         return authorities.stream().anyMatch(a -> a.getAuthority().equals("ROLE_PROCUREMENT_MANAGER"));
+    }
+
+    /** Full field-level snapshot for CREATE/UPDATE/DELETE audit rows. */
+    private Map<String, Object> snapshot(Invoice inv) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("invoiceType", inv.getInvoiceType());
+        m.put("invoiceSource", inv.getInvoiceSource());
+        m.put("projectId", inv.getProject() != null ? inv.getProject().getId() : null);
+        m.put("supplierId", inv.getSupplier() != null ? inv.getSupplier().getId() : null);
+        m.put("invoiceNumber", inv.getInvoiceNumber());
+        m.put("invoiceDate", inv.getInvoiceDate());
+        m.put("receivedDate", inv.getReceivedDate());
+        m.put("purchaseOrderNumber", inv.getPurchaseOrderNumber());
+        m.put("value", inv.getValue());
+        m.put("pioNumber", inv.getPioNumber());
+        m.put("grnNumber", inv.getGrnNumber());
+        m.put("grnReceivedDate", inv.getGrnReceivedDate());
+        m.put("listNo", inv.getListNo());
+        m.put("financeSubmitDate", inv.getFinanceSubmitDate());
+        m.put("remarks", inv.getRemarks());
+        m.put("attachmentUrl", inv.getAttachmentUrl());
+        m.put("active", inv.isActive());
+        return m;
+    }
+
+    /** Writes one append-only audit row in the caller's transaction. Never updated or deleted. */
+    private void recordAudit(Long invoiceId, String action, Long actorUserId,
+                              Map<String, Object> before, Map<String, Object> after) {
+        auditLogRepository.save(new InvoiceAuditLog(
+                invoiceId, action, actorUserId, toJson(before), toJson(after)));
+    }
+
+    private String toJson(Map<String, Object> data) {
+        if (data == null) return null;
+        try {
+            return objectMapper.writeValueAsString(data);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Failed to serialize audit data", e);
+        }
     }
 
     private void applyFields(Invoice inv, InvoiceRequest req, Project project, Supplier supplier) {
@@ -229,7 +286,9 @@ public class InvoiceService {
         inv.setActive(false);
         inv.setUpdatedBy(userRepository.findById(currentUserId).orElse(null));
         inv.setUpdatedAt(OffsetDateTime.now());
-        return invoiceRepository.save(inv);
+        Invoice saved = invoiceRepository.save(inv);
+        recordAudit(id, "CANCEL", currentUserId, Map.of("active", true), Map.of("active", false));
+        return saved;
     }
 
     @Transactional
@@ -238,17 +297,24 @@ public class InvoiceService {
         inv.setActive(true);
         inv.setUpdatedBy(userRepository.findById(currentUserId).orElse(null));
         inv.setUpdatedAt(OffsetDateTime.now());
-        return invoiceRepository.save(inv);
-
+        Invoice saved = invoiceRepository.save(inv);
+        recordAudit(id, "ACTIVATE", currentUserId, Map.of("active", false), Map.of("active", true));
+        return saved;
     }
 
     @Transactional
     public Invoice setGrn(Long id, String grnNumber, Long currentUserId) {
         Invoice inv = getOrThrow(id);
+        Map<String, Object> before = new LinkedHashMap<>();
+        before.put("grnNumber", inv.getGrnNumber());
         inv.setGrnNumber(grnNumber);
         inv.setUpdatedBy(userRepository.findById(currentUserId).orElse(null));
         inv.setUpdatedAt(OffsetDateTime.now());
-        return invoiceRepository.save(inv);
+        Invoice saved = invoiceRepository.save(inv);
+        Map<String, Object> after = new LinkedHashMap<>();
+        after.put("grnNumber", grnNumber);
+        recordAudit(id, "SET_GRN", currentUserId, before, after);
+        return saved;
     }
 
     @Transactional
@@ -261,11 +327,19 @@ public class InvoiceService {
     @Transactional
     public Invoice clearFinanceSubmission(Long id, Long currentUserId) {
         Invoice inv = getOrThrow(id);
+        Map<String, Object> before = new LinkedHashMap<>();
+        before.put("listNo", inv.getListNo());
+        before.put("financeSubmitDate", inv.getFinanceSubmitDate());
         inv.setListNo(null);
         inv.setFinanceSubmitDate(null);
         inv.setUpdatedBy(userRepository.findById(currentUserId).orElse(null));
         inv.setUpdatedAt(OffsetDateTime.now());
-        return invoiceRepository.save(inv);
+        Invoice saved = invoiceRepository.save(inv);
+        Map<String, Object> after = new LinkedHashMap<>();
+        after.put("listNo", null);
+        after.put("financeSubmitDate", null);
+        recordAudit(id, "CLEAR_FINANCE_SUBMISSION", currentUserId, before, after);
+        return saved;
     }
 
     public Page<Invoice> listForSiteKeeper(
@@ -368,6 +442,16 @@ public class InvoiceService {
         }
         invoiceRepository.saveAll(invoices);
 
+        Map<String, Object> before = new LinkedHashMap<>();
+        before.put("listNo", null);
+        before.put("financeSubmitDate", null);
+        Map<String, Object> after = new LinkedHashMap<>();
+        after.put("listNo", listNo);
+        after.put("financeSubmitDate", today);
+        for (Invoice inv : invoices) {
+            recordAudit(inv.getId(), "ADD_TO_FINANCE", currentUserId, before, after);
+        }
+
         return new BatchResult(listNo, invoices.size());
     }
 
@@ -376,13 +460,18 @@ public class InvoiceService {
     @Transactional
     public Invoice uploadAttachment(Long id, org.springframework.web.multipart.MultipartFile file, Long currentUserId) {
         Invoice inv = getOrThrow(id);
+        Map<String, Object> before = new LinkedHashMap<>();
+        before.put("attachmentUrl", inv.getAttachmentUrl());
         String storedKey = fileStorageService.store(file);
         inv.setAttachmentUrl(storedKey);
         inv.setAttachmentViewed(false);
         inv.setUpdatedBy(userRepository.findById(currentUserId).orElse(null));
         inv.setUpdatedAt(OffsetDateTime.now());
-        return invoiceRepository.save(inv);
-
+        Invoice saved = invoiceRepository.save(inv);
+        Map<String, Object> after = new LinkedHashMap<>();
+        after.put("attachmentUrl", storedKey);
+        recordAudit(id, "UPLOAD_ATTACHMENT", currentUserId, before, after);
+        return saved;
     }
 
     public java.nio.file.Path resolveAttachmentPath(Long id) {

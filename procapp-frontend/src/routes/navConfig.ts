@@ -9,6 +9,7 @@ import {
   FolderKanban,
   Truck,
   Users,
+  History,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -56,4 +57,5 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/projects', label: 'Projects', icon: FolderKanban, roles: ['ADMIN'] },
   { to: '/suppliers', label: 'Suppliers', icon: Truck, roles: ['ADMIN'] },
   { to: '/users', label: 'Users', icon: Users, roles: ['ADMIN'] },
+  { to: '/audit-log', label: 'Audit Log', icon: History, roles: ['ADMIN'] },
 ]

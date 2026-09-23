@@ -40,6 +40,19 @@ export async function listUsers(params: ListUsersParams = {}): Promise<Page<User
     return { ...page, content }
 }
 
+/** Every user, walked page by page - for filter dropdowns (e.g. the Audit Log's "Performed by"
+ * picker) that need the full list rather than one capped page. */
+export async function listAllUsers(): Promise<User[]> {
+    const pageSize = 200
+    const all: User[] = []
+    for (let page = 0; ; page++) {
+        const result = await listUsers({ page, size: pageSize, sort: 'name,asc' })
+        all.push(...result.content)
+        if (page >= result.totalPages - 1 || result.content.length === 0) break
+    }
+    return all
+}
+
 export async function getUser(id: number): Promise<User> {
     return http<User>(`/api/users/${id}`)
 }
