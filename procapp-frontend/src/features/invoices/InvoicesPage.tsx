@@ -275,15 +275,17 @@ export function InvoicesPage() {
                       <CheckCircle2 className="size-4" />
                     </Button>
                   ))}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Delete ${invoice.invoiceNumber}`}
-                  onClick={() => setDeleteTarget(invoice)}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
+                {!grnComplete && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Delete ${invoice.invoiceNumber}`}
+                    onClick={() => setDeleteTarget(invoice)}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                )}
               </>
             )
           }}

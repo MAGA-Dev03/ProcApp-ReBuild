@@ -169,8 +169,19 @@ public class InvoiceService {
     public void delete(Long id) {
         // Hard delete — for data-entry mistakes only. Deliberately
         // different from cancel/activate (Phase 6), which is an
-        // audit-preserving soft toggle instead.
+        // audit-preserving soft toggle instead. Once goods have been
+        // received or the invoice has been submitted to finance (carries
+        // a list no.), it must be cancelled instead so the record and the
+        // finance batch total survive.
         Invoice inv = getOrThrow(id);
+        if (inv.getListNo() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Invoice has been submitted to finance and cannot be deleted. Cancel it instead.");
+        }
+        if (inv.getGrnNumber() != null && inv.getGrnReceivedDate() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Invoice has a goods-received record and cannot be deleted. Cancel it instead.");
+        }
         invoiceRepository.delete(inv);
     }
 

@@ -265,4 +265,44 @@ public class SecurityCriticalTests {
                 .andExpect(status().isForbidden()); // but mutation requires the real ADMIN role
     }
 
+    // --- Rule 6 (F-10): An invoice that has been submitted to finance
+    // (carries a list no.) or has a completed goods-received record must
+    // never be hard-deletable — only a formal cancel is allowed once either
+    // has happened, so the record and the finance batch total survive. ---
+    @Test
+    void invoiceDelete_blockedOnceSubmittedToFinanceOrGrnReceived() throws Exception {
+        Role procurementRole = roleRepository.findByNameIgnoreCase("PROCUREMENT").orElseThrow();
+        Project project = createProject("DELF10-" + System.nanoTime());
+        Supplier supplier = createSupplier("BP-DELF10-" + System.nanoTime());
+        User procurementUser = createUser(
+                "procurement-" + System.nanoTime() + "@test.local", Set.of(procurementRole), true, null);
+        String token = tokenFor(procurementUser);
+
+        // Plain, untouched invoice: hard delete is still allowed (data-entry mistakes).
+        Invoice plainInvoice = createInvoice(project, supplier, procurementUser, null);
+        mockMvc.perform(delete("/api/invoices/" + plainInvoice.getId())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+
+        // GRN received: delete must be blocked.
+        Invoice grnInvoice = createInvoice(project, supplier, procurementUser, "GRN-F10");
+        grnInvoice.setGrnReceivedDate(LocalDate.now());
+        invoiceRepository.save(grnInvoice);
+        mockMvc.perform(delete("/api/invoices/" + grnInvoice.getId())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isConflict());
+        org.junit.jupiter.api.Assertions.assertTrue(invoiceRepository.findById(grnInvoice.getId()).isPresent(),
+                "An invoice with a completed GRN must survive a delete attempt.");
+
+        // Submitted to finance: delete must be blocked.
+        Invoice submittedInvoice = createInvoice(project, supplier, procurementUser, null);
+        submittedInvoice.setListNo("LIST-F10-" + System.nanoTime());
+        invoiceRepository.save(submittedInvoice);
+        mockMvc.perform(delete("/api/invoices/" + submittedInvoice.getId())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isConflict());
+        org.junit.jupiter.api.Assertions.assertTrue(invoiceRepository.findById(submittedInvoice.getId()).isPresent(),
+                "An invoice submitted to finance must survive a delete attempt.");
+    }
+
 }
