@@ -288,6 +288,11 @@ export function InvoicesSubmittedPage() {
           if (editingInvoice) await clearFinanceMutation.mutateAsync(editingInvoice.id)
         }}
         isClearingFromFinance={clearFinanceMutation.isPending}
+        readOnly={
+          editingInvoice
+            ? ['SUBMITTED', 'CANCELLED'].includes(computeInvoiceStatus(editingInvoice))
+            : false
+        }
       />
 
       <ConfirmDialog

@@ -126,6 +126,16 @@ public class InvoiceService {
     @Transactional
     public Invoice update(Long id, InvoiceRequest req, Long currentUserId, Collection<? extends GrantedAuthority> authorities) {
         Invoice inv = getOrThrow(id);
+
+        if (!inv.isActive()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Invoice is cancelled and cannot be edited. Reactivate it first.");
+        }
+        if (inv.getListNo() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Invoice has been submitted to finance and cannot be edited. Clear the finance submission first.");
+        }
+
         Map<String, String> fieldErrors = new HashMap<>();
 
         // Explicit rejection of immutable-field tampering, per the contract

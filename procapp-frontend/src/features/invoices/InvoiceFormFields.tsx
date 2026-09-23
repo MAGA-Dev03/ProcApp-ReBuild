@@ -86,6 +86,10 @@ export interface InvoiceFormFieldsProps {
   /** Extra actions rendered alongside Save/Cancel - e.g. the submitted screen's "Clear from
    * finance list" escape hatch. Only makes sense in edit mode. */
   footerExtra?: ReactNode
+  /** Invoice is submitted to finance or cancelled - the backend rejects edits outright, so the
+   * form is shown for reference only. Use footerExtra to offer an escape hatch (e.g. clear from
+   * finance) before editing can resume. */
+  readOnly?: boolean
 }
 
 /** Keyed by invoice id at the call site so switching invoices (or entering/leaving edit mode)
@@ -99,6 +103,7 @@ export function InvoiceFormFields({
   onCancelEdit,
   isSubmitting,
   footerExtra,
+  readOnly = false,
 }: InvoiceFormFieldsProps) {
   const isProcurementManager = useHasRole('PROCUREMENT_MANAGER')
   const [frozenFields, setFrozenFields] = useState<Set<FreezableField>>(new Set())
@@ -196,6 +201,7 @@ export function InvoiceFormFields({
             options={INVOICE_TYPE_OPTIONS}
             placeholder="Select a type"
             required
+            disabled={readOnly}
           />
         </div>
 
@@ -215,6 +221,7 @@ export function InvoiceFormFields({
             options={INVOICE_SOURCE_OPTIONS}
             placeholder="Select a source"
             required
+            disabled={readOnly}
           />
         </div>
 
@@ -235,6 +242,7 @@ export function InvoiceFormFields({
             placeholder="Select a project"
             searchPlaceholder="Search projects…"
             required
+            disabled={readOnly}
           />
         </div>
 
@@ -255,11 +263,18 @@ export function InvoiceFormFields({
             placeholder="Select a supplier"
             searchPlaceholder="Search suppliers…"
             required
+            disabled={readOnly}
           />
         </div>
 
         <div className="space-y-1">
-          <TextField control={control} name="invoiceNumber" label="Invoice No" required />
+          <TextField
+            control={control}
+            name="invoiceNumber"
+            label="Invoice No"
+            required
+            disabled={readOnly}
+          />
           {duplicateCheck?.isDuplicate && (
             <p className="text-xs text-amber-600 dark:text-amber-400">
               This looks like a duplicate - invoice #{debouncedInvoiceNumber} already exists for
@@ -277,7 +292,13 @@ export function InvoiceFormFields({
               />
             </div>
           )}
-          <DatePickerField control={control} name="invoiceDate" label="Invoice Date" required />
+          <DatePickerField
+            control={control}
+            name="invoiceDate"
+            label="Invoice Date"
+            required
+            disabled={readOnly}
+          />
         </div>
 
         <div className="space-y-1">
@@ -289,7 +310,13 @@ export function InvoiceFormFields({
               />
             </div>
           )}
-          <DatePickerField control={control} name="receivedDate" label="Received Date" required />
+          <DatePickerField
+            control={control}
+            name="receivedDate"
+            label="Received Date"
+            required
+            disabled={readOnly}
+          />
           {receivedBeforeInvoice && (
             <p className="text-xs text-amber-600 dark:text-amber-400">
               Received date is before the invoice date - double-check this is correct.
@@ -297,11 +324,28 @@ export function InvoiceFormFields({
           )}
         </div>
 
-        <TextField control={control} name="purchaseOrderNumber" label="PO Number" required />
-        <CurrencyField control={control} name="value" label="Value" required />
-        <TextField control={control} name="pioNumber" label="PIO No" required />
-        <TextField control={control} name="grnNumber" label="GRN No" />
-        <DatePickerField control={control} name="grnReceivedDate" label="GRN Received Date" />
+        <TextField
+          control={control}
+          name="purchaseOrderNumber"
+          label="PO Number"
+          required
+          disabled={readOnly}
+        />
+        <CurrencyField
+          control={control}
+          name="value"
+          label="Value"
+          required
+          disabled={readOnly}
+        />
+        <TextField control={control} name="pioNumber" label="PIO No" required disabled={readOnly} />
+        <TextField control={control} name="grnNumber" label="GRN No" disabled={readOnly} />
+        <DatePickerField
+          control={control}
+          name="grnReceivedDate"
+          label="GRN Received Date"
+          disabled={readOnly}
+        />
 
         <FileUploadField
           control={control}
@@ -313,6 +357,7 @@ export function InvoiceFormFields({
               : null
           }
           onRemoveExisting={() => setAttachmentRemoved(true)}
+          disabled={readOnly}
         />
 
         {isProcurementManager && (
@@ -323,11 +368,20 @@ export function InvoiceFormFields({
               label="Remarks"
               placeholder="Optional notes (Procurement Manager only)"
               rows={2}
+              disabled={readOnly}
             />
           </div>
         )}
       </div>
 
+      {readOnly && (
+        <Alert>
+          <AlertDescription>
+            This invoice has been submitted to finance or cancelled and can no longer be edited
+            directly. Use the action below to unlock it first.
+          </AlertDescription>
+        </Alert>
+      )}
       {Object.keys(errors).length > 0 && (
         <Alert variant="destructive">
           <AlertDescription>Please fix the highlighted fields and try again.</AlertDescription>
@@ -340,12 +394,14 @@ export function InvoiceFormFields({
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Saving…' : mode === 'edit' ? 'Save Changes' : 'Add Invoice'}
-        </Button>
+        {!readOnly && (
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Saving…' : mode === 'edit' ? 'Save Changes' : 'Add Invoice'}
+          </Button>
+        )}
         {mode === 'edit' && onCancelEdit && (
           <Button type="button" variant="outline" onClick={onCancelEdit}>
-            Cancel
+            {readOnly ? 'Close' : 'Cancel'}
           </Button>
         )}
         {footerExtra}

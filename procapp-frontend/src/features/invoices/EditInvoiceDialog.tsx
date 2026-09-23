@@ -23,6 +23,8 @@ interface EditInvoiceDialogProps {
   /** Only passed on the Submitted Invoices screen - "un-batches" the invoice back to pending. */
   onClearFromFinance?: () => Promise<void>
   isClearingFromFinance?: boolean
+  /** Invoice is submitted to finance or cancelled - the backend rejects edits outright. */
+  readOnly?: boolean
 }
 
 export function EditInvoiceDialog({
@@ -34,6 +36,7 @@ export function EditInvoiceDialog({
   isSubmitting,
   onClearFromFinance,
   isClearingFromFinance,
+  readOnly,
 }: EditInvoiceDialogProps) {
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
 
@@ -55,6 +58,7 @@ export function EditInvoiceDialog({
               onSubmit={onSubmit}
               onCancelEdit={() => onOpenChange(false)}
               isSubmitting={isSubmitting}
+              readOnly={readOnly}
               footerExtra={
                 onClearFromFinance && (
                   <div className="ml-auto flex flex-col items-end gap-1">

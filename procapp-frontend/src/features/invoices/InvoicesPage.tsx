@@ -231,17 +231,20 @@ export function InvoicesPage() {
           rowActions={(invoice) => {
             const status = computeInvoiceStatus(invoice)
             const grnComplete = status === 'GRN_RECEIVED' || status === 'SUBMITTED'
+            const locked = status === 'SUBMITTED' || status === 'CANCELLED'
             return (
               <>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Edit ${invoice.invoiceNumber}`}
-                  onClick={() => setEditingInvoice(invoice)}
-                >
-                  <Pencil className="size-4" />
-                </Button>
+                {!locked && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Edit ${invoice.invoiceNumber}`}
+                    onClick={() => setEditingInvoice(invoice)}
+                  >
+                    <Pencil className="size-4" />
+                  </Button>
+                )}
                 {!grnComplete && (
                   <Button
                     type="button"

@@ -292,6 +292,16 @@ export async function updateInvoice(id: number, payload: UpdateInvoicePayload): 
   maybeFail(0.08, 'Validation failed', { value: 'Value must be greater than zero.' })
 
   const invoice = findInvoiceOrThrow(id)
+  if (!invoice.active) {
+    throw new ApiError('Invoice is cancelled and cannot be edited. Reactivate it first.', 409)
+  }
+  if (invoice.listNo) {
+    throw new ApiError(
+      'Invoice has been submitted to finance and cannot be edited. Clear the finance submission first.',
+      409,
+    )
+  }
+
   const updated: Invoice = {
     ...invoice,
     ...payload,
