@@ -74,6 +74,7 @@ export function AddToFinancePage() {
       listInvoices({
         hasListNo: false,
         financeSubmitted: false,
+        active: true,
         projectId: projectFilter ? Number(projectFilter) : undefined,
         supplierId: supplierFilter ? Number(supplierFilter) : undefined,
         receivedDateFrom: monthRange?.from,

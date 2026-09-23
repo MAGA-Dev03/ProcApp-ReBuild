@@ -314,6 +314,28 @@ public class InvoiceService {
             ));
         }
 
+        List<Long> cancelled = invoices.stream()
+                .filter(i -> !i.isActive())
+                .map(Invoice::getId)
+                .toList();
+        if (!cancelled.isEmpty()) {
+            throw new ValidationException(Map.of(
+                    "invoiceIds",
+                    "Invoice id(s) are cancelled and cannot be submitted to finance: " + cancelled
+            ));
+        }
+
+        List<Long> alreadyBatched = invoices.stream()
+                .filter(i -> i.getListNo() != null && !i.getListNo().isBlank())
+                .map(Invoice::getId)
+                .toList();
+        if (!alreadyBatched.isEmpty()) {
+            throw new ValidationException(Map.of(
+                    "invoiceIds",
+                    "Invoice id(s) are already submitted to finance: " + alreadyBatched
+            ));
+        }
+
         // --- Validation passed for the whole batch. Now generate ONE shared
         // listNo and apply it to every invoice in the batch. ---
 

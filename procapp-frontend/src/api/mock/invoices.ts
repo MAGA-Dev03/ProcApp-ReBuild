@@ -429,6 +429,20 @@ export async function batchAddToFinance(
       422,
     )
   }
+  const cancelled = invoices.find((invoice) => !invoice.active)
+  if (cancelled) {
+    throw new ApiError(
+      `Invoice ${cancelled.invoiceNumber} is cancelled and cannot be submitted to finance`,
+      422,
+    )
+  }
+  const alreadyBatched = invoices.find((invoice) => Boolean(invoice.listNo))
+  if (alreadyBatched) {
+    throw new ApiError(
+      `Invoice ${alreadyBatched.invoiceNumber} has already been submitted to finance`,
+      422,
+    )
+  }
 
   const [year, month] = payload.financeSubmitDate.split('-')
   const monthPrefix = `${year}/${month}/`

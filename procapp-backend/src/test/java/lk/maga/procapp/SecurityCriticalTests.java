@@ -196,8 +196,66 @@ public class SecurityCriticalTests {
         Invoice validAfter = invoiceRepository.findById(validInvoice.getId()).orElseThrow();
         org.junit.jupiter.api.Assertions.assertNull(validAfter.getListNo(),
                 "A batch containing ANY invalid invoice must leave the whole batch unchanged, " +
-                "including the otherwise-valid ones.");                
+                "including the otherwise-valid ones.");
         }
+
+    // --- Rule 3b: A cancelled invoice must never be payable via finance
+    // batching, and an invoice already in a batch must never be silently
+    // re-batched (double payment). ---
+    @Test
+    void batchAddToFinance_rejectsCancelledInvoice() throws Exception {
+        Role managerRole = roleRepository.findByNameIgnoreCase("PROCUREMENT_MANAGER").orElseThrow();
+        Project project = createProject("BATCHTEST-" + System.nanoTime());
+        Supplier supplier = createSupplier("BP-BATCH-" + System.nanoTime());
+        User manager = createUser("manager-" + System.nanoTime() + "@test.local", Set.of(managerRole), true, null);
+
+        Invoice cancelledInvoice = createInvoice(project, supplier, manager, "GRN-CANCELLED");
+        cancelledInvoice.setActive(false);
+        cancelledInvoice = invoiceRepository.save(cancelledInvoice);
+
+        String token = tokenFor(manager);
+        String body = objectMapper.writeValueAsString(
+                java.util.Map.of("invoiceIds", java.util.List.of(cancelledInvoice.getId()))
+            );
+
+        mockMvc.perform(post("/api/invoices/batch-add-to-finance")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content(body))
+                .andExpect(status().is4xxClientError());
+
+        Invoice after = invoiceRepository.findById(cancelledInvoice.getId()).orElseThrow();
+        org.junit.jupiter.api.Assertions.assertNull(after.getListNo(),
+                "A cancelled invoice must never be submitted to finance.");
+    }
+
+    @Test
+    void batchAddToFinance_rejectsInvoiceAlreadyInABatch() throws Exception {
+        Role managerRole = roleRepository.findByNameIgnoreCase("PROCUREMENT_MANAGER").orElseThrow();
+        Project project = createProject("BATCHTEST-" + System.nanoTime());
+        Supplier supplier = createSupplier("BP-BATCH-" + System.nanoTime());
+        User manager = createUser("manager-" + System.nanoTime() + "@test.local", Set.of(managerRole), true, null);
+
+        Invoice alreadyBatched = createInvoice(project, supplier, manager, "GRN-ALREADY");
+        alreadyBatched.setListNo("2026/01/01/001");
+        alreadyBatched = invoiceRepository.save(alreadyBatched);
+        String originalListNo = alreadyBatched.getListNo();
+
+        String token = tokenFor(manager);
+        String body = objectMapper.writeValueAsString(
+                java.util.Map.of("invoiceIds", java.util.List.of(alreadyBatched.getId()))
+            );
+
+        mockMvc.perform(post("/api/invoices/batch-add-to-finance")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content(body))
+                .andExpect(status().is4xxClientError());
+
+        Invoice after = invoiceRepository.findById(alreadyBatched.getId()).orElseThrow();
+        org.junit.jupiter.api.Assertions.assertEquals(originalListNo, after.getListNo(),
+                "An invoice already submitted to finance must not be re-batched with a new list number.");
+    }
 
         // --- Rule 4: Cascading vs. blocked deletes — projects cascade,
         // suppliers are blocked when referenced, with an accurate count. ---
