@@ -1,5 +1,6 @@
 package lk.maga.procapp.config;
 
+import lk.maga.procapp.repository.UserRepository;
 import lk.maga.procapp.security.JwtAuthenticationFilter;
 import lk.maga.procapp.security.JwtService;
 import org.springframework.beans.factory.annotation.Value;
@@ -95,9 +96,10 @@ public AuthenticationEntryPoint authenticationEntryPoint() {
 
     @Bean
     public SecurityFilterChain filterChain(
-        HttpSecurity http, JwtService jwtService, AuthenticationEntryPoint entryPoint
+        HttpSecurity http, JwtService jwtService, UserRepository userRepository,
+        AuthenticationEntryPoint entryPoint
     ) throws Exception {
-    JwtAuthenticationFilter jwtFilter = new JwtAuthenticationFilter(jwtService);
+    JwtAuthenticationFilter jwtFilter = new JwtAuthenticationFilter(jwtService, userRepository);
 
     http
         .csrf(csrf -> csrf.disable())

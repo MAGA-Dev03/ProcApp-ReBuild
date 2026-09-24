@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -39,7 +40,8 @@ const profileFormSchema = z
 type ProfileFormValues = z.infer<typeof profileFormSchema>
 
 export function ProfilePage() {
-  const { currentUser, updateCurrentUser } = useAuth()
+  const { currentUser, updateCurrentUser, logout } = useAuth()
+  const navigate = useNavigate()
   const [error, setError] = useState<string | null>(null)
 
   const {
@@ -60,7 +62,15 @@ export function ProfilePage() {
         name: values.name,
         password: values.password || undefined,
       }),
-    onSuccess: (updated) => {
+    onSuccess: (updated, values) => {
+      if (values.password) {
+        // The server revokes every session on a password change, this one
+        // included, so any further request would 401. Sign out cleanly instead.
+        toast.success('Password changed. Please sign in with your new password.')
+        logout()
+        navigate('/login', { replace: true })
+        return
+      }
       updateCurrentUser(updated)
       reset({ name: updated.name, password: '', confirmPassword: '' })
       toast.success('Profile updated')

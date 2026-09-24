@@ -6,6 +6,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lk.maga.procapp.entity.User;
+import lk.maga.procapp.repository.UserRepository;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
@@ -20,9 +22,11 @@ import java.util.stream.Collectors;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+    private final UserRepository userRepository;
 
-    public JwtAuthenticationFilter(JwtService jwtService) {
+    public JwtAuthenticationFilter(JwtService jwtService, UserRepository userRepository) {
         this.jwtService = jwtService;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -44,17 +48,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             Claims claims = jwtService.parseClaims(token);
             Long userId = claims.get("userId", Long.class);
-            @SuppressWarnings("unchecked")
-            List<String> roles = claims.get("roles", List.class);
+            Integer tokenVersion = claims.get("tv", Integer.class);
 
-            List<GrantedAuthority> authorities = roles.stream()
-                    .map(r -> new SimpleGrantedAuthority("ROLE_" + r))
+            // A valid signature only proves we issued the token, not that the
+            // user should still have access. Re-read the user on every request
+            // so deactivation, role changes and revocation (token_version bump
+            // on logout / password change) take effect immediately instead of
+            // at token expiry. Authorities come from the database, never from
+            // the token's roles claim.
+            User user = userId == null ? null : userRepository.findById(userId).orElse(null);
+            if (user == null || !user.isActive()
+                    || tokenVersion == null || tokenVersion != user.getTokenVersion()) {
+                SecurityContextHolder.clearContext();
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            List<GrantedAuthority> authorities = user.getRoles().stream()
+                    .map(r -> new SimpleGrantedAuthority("ROLE_" + r.getName()))
                     .collect(Collectors.toList());
 
-            // Authorities come straight from the token claims, not a fresh
-            // DB lookup — cheap and stateless, at the cost of a role change
-            // only taking effect on the user's next login. Acceptable
-            // trade-off for a 10-hour token lifetime.
             var authToken = new UsernamePasswordAuthenticationToken(
                     userId, null, authorities
             );

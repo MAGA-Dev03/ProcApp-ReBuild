@@ -23,6 +23,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import java.time.OffsetDateTime;
 
@@ -116,6 +117,14 @@ public class UserService {
             throw new ValidationException(fieldErrors);
         }
 
+        boolean deactivating = u.isActive() && Boolean.FALSE.equals(req.getActive());
+        boolean rolesChanged = !roleIds(u.getRoles()).equals(roleIds(roles));
+        if (deactivating || rolesChanged || changingPassword) {
+            // Revoke the user's outstanding tokens so the change applies now,
+            // not whenever their current token happens to expire.
+            u.setTokenVersion(u.getTokenVersion() + 1);
+        }
+
         u.setName(req.getName());
         u.setEmail(req.getEmail());
         // Blank/omitted password = keep the existing hash untouched.
@@ -145,6 +154,11 @@ public class UserService {
                 throw new ValidationException(fieldErrors);
             }
             u.setPasswordHash(passwordEncoder.encode(req.getPassword()));
+            // Sign out every session, including this one: if the password is
+            // being changed because the account was compromised, a stolen
+            // token must stop working too. The client sends the user back to
+            // the login page.
+            u.setTokenVersion(u.getTokenVersion() + 1);
         }
         // Deliberately nothing else is touched here — no roles, projects,
         // allProjects, or active, no matter what a client sends. This is
@@ -172,6 +186,10 @@ public class UserService {
             );
         }
         userRepository.delete(u);
+    }
+
+    private static Set<Long> roleIds(Set<Role> roles) {
+        return roles.stream().map(Role::getId).collect(Collectors.toSet());
     }
 
     private void validatePasswordStrength(String password, Map<String, String> fieldErrors) {

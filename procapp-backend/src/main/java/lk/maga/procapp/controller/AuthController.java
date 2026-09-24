@@ -5,6 +5,7 @@ import lk.maga.procapp.dto.LoginRequest;
 import lk.maga.procapp.dto.LoginResponse;
 import lk.maga.procapp.dto.RoleResponse;
 import lk.maga.procapp.dto.ProjectResponse;
+import lk.maga.procapp.repository.UserRepository;
 import lk.maga.procapp.security.CustomUserDetails;
 import lk.maga.procapp.security.JwtService;
 import lk.maga.procapp.security.LoginAttemptService;
@@ -30,12 +31,14 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final LoginAttemptService loginAttemptService;
+    private final UserRepository userRepository;
 
     public AuthController(AuthenticationManager authenticationManager, JwtService jwtService,
-                           LoginAttemptService loginAttemptService) {
+                           LoginAttemptService loginAttemptService, UserRepository userRepository) {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.loginAttemptService = loginAttemptService;
+        this.userRepository = userRepository;
     }
 
     @PostMapping("/login")
@@ -73,5 +76,16 @@ public class AuthController {
 
         return ResponseEntity.ok(new LoginResponse(token, payload));
         
+    }
+
+    /**
+     * Server-side logout: bumps the user's token_version, which invalidates
+     * every token issued to them so far (all devices), not just the copy the
+     * browser is about to discard. A replayed copy of the token gets 401.
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(Authentication authentication) {
+        userRepository.incrementTokenVersion((Long) authentication.getPrincipal());
+        return ResponseEntity.noContent().build();
     }
 }

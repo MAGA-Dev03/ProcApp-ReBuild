@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
 import type { User } from '@/types'
-import { login as apiLogin } from '@/api/client'
+import { login as apiLogin, logout as apiLogout } from '@/api/client'
 import { setAuthToken } from '@/api/http'
 import {
   clearStoredSession,
@@ -44,6 +44,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function logout() {
+    // Best effort: revoke the token server-side, but never let a network
+    // failure keep the user signed in locally. Must go out before the token
+    // is cleared below, since the request needs it.
+    if (token) apiLogout().catch(() => {})
     setCurrentUser(null)
     setToken(null)
     setAuthToken(null)

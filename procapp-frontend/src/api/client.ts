@@ -73,7 +73,7 @@ export {
   getDistinctListNumbers,
 } from './invoices'
 
-export { login } from './auth'
+export { login, logout } from './auth'
 
 export { listInvoiceAuditLog } from './auditLog'
 export type { ListAuditLogParams } from './auditLog'

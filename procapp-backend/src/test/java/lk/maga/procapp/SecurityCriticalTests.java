@@ -429,4 +429,102 @@ public class SecurityCriticalTests {
                 .andExpect(jsonPath("$.content[0].performedByUserId").value(procurementUser.getId()));
     }
 
+    // --- Rule 9 (F-04): A token must stop working the moment the user is
+    // deactivated, demoted, changes their password or logs out — not when
+    // it happens to expire up to 10 hours later. ---
+
+    @Test
+    void deactivatedUsersExistingTokenIsRejected() throws Exception {
+        Role adminRole = roleRepository.findByNameIgnoreCase("ADMIN").orElseThrow();
+        User user = createUser("deactivated-" + System.nanoTime() + "@test.local", Set.of(adminRole), true, null);
+        String token = tokenFor(user);
+
+        mockMvc.perform(get("/api/projects").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+
+        user.setActive(false);
+        entityManager.flush(); // not save(): merge chokes on the immutable Set.of roles
+
+        mockMvc.perform(get("/api/projects").header("Authorization", "Bearer " + token))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void authoritiesComeFromDatabaseNotTokenClaims() throws Exception {
+        Role adminRole = roleRepository.findByNameIgnoreCase("ADMIN").orElseThrow();
+        Role procurementRole = roleRepository.findByNameIgnoreCase("PROCUREMENT").orElseThrow();
+        User user = createUser("demoted-" + System.nanoTime() + "@test.local", Set.of(adminRole), true, null);
+        String token = tokenFor(user); // roles claim still says ADMIN
+
+        mockMvc.perform(get("/api/users").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+
+        // Demote without bumping token_version: the stale ADMIN claim in the
+        // token must still not grant admin access.
+        user.setRoles(new HashSet<>(Set.of(procurementRole)));
+        entityManager.flush();
+
+        mockMvc.perform(get("/api/users").header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void adminRoleChangeRevokesTargetsTokens() throws Exception {
+        Role adminRole = roleRepository.findByNameIgnoreCase("ADMIN").orElseThrow();
+        Role procurementRole = roleRepository.findByNameIgnoreCase("PROCUREMENT").orElseThrow();
+        User admin = createUser("admin-" + System.nanoTime() + "@test.local", Set.of(adminRole), true, null);
+        User target = createUser("target-" + System.nanoTime() + "@test.local", Set.of(adminRole), true, null);
+        String targetToken = tokenFor(target);
+
+        String body = objectMapper.writeValueAsString(java.util.Map.of(
+            "name", target.getName(),
+            "email", target.getEmail(),
+            "allProjects", true,
+            "roleIds", java.util.List.of(procurementRole.getId())
+        ));
+        mockMvc.perform(put("/api/users/" + target.getId())
+                        .header("Authorization", "Bearer " + tokenFor(admin))
+                        .contentType("application/json")
+                        .content(body))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/projects").header("Authorization", "Bearer " + targetToken))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logoutRevokesTokenServerSide() throws Exception {
+        Role adminRole = roleRepository.findByNameIgnoreCase("ADMIN").orElseThrow();
+        User user = createUser("logout-" + System.nanoTime() + "@test.local", Set.of(adminRole), true, null);
+        String token = tokenFor(user);
+
+        mockMvc.perform(post("/api/auth/logout").header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+
+        // A replayed copy of the logged-out token is dead.
+        mockMvc.perform(get("/api/projects").header("Authorization", "Bearer " + token))
+                .andExpect(status().isUnauthorized());
+
+        // A fresh login still works.
+        User reloaded = userRepository.findById(user.getId()).orElseThrow();
+        mockMvc.perform(get("/api/projects").header("Authorization", "Bearer " + tokenFor(reloaded)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void ownPasswordChangeRevokesExistingTokens() throws Exception {
+        Role adminRole = roleRepository.findByNameIgnoreCase("ADMIN").orElseThrow();
+        User user = createUser("pwchange-" + System.nanoTime() + "@test.local", Set.of(adminRole), true, null);
+        String token = tokenFor(user);
+
+        mockMvc.perform(put("/api/users/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content("{\"password\":\"NewPassw0rd\"}"))
+                .andExpect(status().isOk());
+        entityManager.flush();
+
+        mockMvc.perform(get("/api/projects").header("Authorization", "Bearer " + token))
+                .andExpect(status().isUnauthorized());
+    }
 }

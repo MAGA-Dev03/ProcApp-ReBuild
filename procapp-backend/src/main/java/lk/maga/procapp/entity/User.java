@@ -39,6 +39,11 @@ public class User {
     @Column(nullable = false)
     private OffsetDateTime createdAt;
 
+    // Must match the "tv" claim of a presented JWT; bumping it revokes every
+    // outstanding token for this user. See V5__user_token_version.sql.
+    @Column(name = "token_version", nullable = false)
+    private int tokenVersion;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "user_roles",
