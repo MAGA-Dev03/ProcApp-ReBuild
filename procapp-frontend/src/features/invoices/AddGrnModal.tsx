@@ -13,10 +13,17 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { TextField, DatePickerField } from '@/components/form'
+import { REFERENCE_NUMBER_MESSAGE, REFERENCE_NUMBER_PATTERN } from './invoiceFormSchema'
 
 const grnFormSchema = z.object({
-  grnNumber: z.string().min(1, 'GRN number is required'),
-  pioNumber: z.string().min(1, 'PIO number is required'),
+  grnNumber: z
+    .string()
+    .min(1, 'GRN number is required')
+    .regex(REFERENCE_NUMBER_PATTERN, REFERENCE_NUMBER_MESSAGE),
+  pioNumber: z
+    .string()
+    .min(1, 'PIO number is required')
+    .regex(REFERENCE_NUMBER_PATTERN, REFERENCE_NUMBER_MESSAGE),
   grnReceivedDate: z.string().min(1, 'GRN received date is required'),
 })
 

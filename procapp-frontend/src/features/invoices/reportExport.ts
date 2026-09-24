@@ -62,9 +62,29 @@ export function toReportRow(invoice: InvoiceWithRelations): ReportRow {
   }
 }
 
+/** Leading characters that make Excel/Sheets/LibreOffice evaluate a cell as a formula (tab/CR
+ * included because some importers strip them and then evaluate what follows). */
+const FORMULA_TRIGGER = /^[=+\-@\t\r]/
+
+/** Report cells carry untrusted free text (invoice/PO/PIO/GRN numbers, remarks, names). A leading
+ * apostrophe makes spreadsheets show it as literal text instead of running it (F-17). Non-strings
+ * pass through so the Value column stays numeric. */
+export function neutralizeSpreadsheetCell(value: unknown): unknown {
+  if (typeof value !== 'string' || !FORMULA_TRIGGER.test(value)) return value
+  return `'${value}`
+}
+
+function neutralizeRow(row: ReportRow): Record<keyof ReportRow, unknown> {
+  const safe = {} as Record<keyof ReportRow, unknown>
+  for (const key of Object.keys(row) as (keyof ReportRow)[]) {
+    safe[key] = neutralizeSpreadsheetCell(row[key])
+  }
+  return safe
+}
+
 function toCsvValue(value: unknown): string {
-  const str = String(value ?? '')
-  if (/[",\n]/.test(str)) {
+  const str = String(neutralizeSpreadsheetCell(value ?? ''))
+  if (/[",\n\r]/.test(str)) {
     return `"${str.replace(/"/g, '""')}"`
   }
   return str
@@ -97,7 +117,7 @@ export function exportRowsToCsv(rows: ReportRow[], filename = 'invoice-report.cs
 }
 
 export function exportRowsToExcel(rows: ReportRow[], filename = 'invoice-report.xlsx') {
-  const worksheet = XLSX.utils.json_to_sheet(rows)
+  const worksheet = XLSX.utils.json_to_sheet(rows.map(neutralizeRow))
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Invoices')
   XLSX.writeFile(workbook, filename)
@@ -108,7 +128,15 @@ export async function copyRowsToClipboard(rows: ReportRow[]): Promise<void> {
   const headers = Object.keys(rows[0]) as (keyof ReportRow)[]
   const lines = [headers.join('\t')]
   for (const row of rows) {
-    lines.push(headers.map((header) => String(row[header] ?? '')).join('\t'))
+    lines.push(
+      headers
+        // Pasting into a spreadsheet evaluates formulas too; tabs/newlines inside a value would
+        // also split it into extra cells/rows.
+        .map((header) =>
+          String(neutralizeSpreadsheetCell(row[header] ?? '')).replace(/[\t\r\n]+/g, ' '),
+        )
+        .join('\t'),
+    )
   }
   await navigator.clipboard.writeText(lines.join('\n'))
 }

