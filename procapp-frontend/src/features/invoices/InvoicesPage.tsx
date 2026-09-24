@@ -245,7 +245,7 @@ export function InvoicesPage() {
                     <Pencil className="size-4" />
                   </Button>
                 )}
-                {!grnComplete && (
+                {!grnComplete && invoice.active && (
                   <Button
                     type="button"
                     variant="ghost"

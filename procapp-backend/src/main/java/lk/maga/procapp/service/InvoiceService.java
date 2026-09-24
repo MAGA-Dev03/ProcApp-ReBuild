@@ -308,6 +308,10 @@ public class InvoiceService {
     @Transactional
     public Invoice setGrn(Long id, String grnNumber, Long currentUserId) {
         Invoice inv = getOrThrow(id);
+        if (!inv.isActive()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Invoice is cancelled and its goods-received record cannot be changed. Reactivate it first.");
+        }
         Map<String, Object> before = new LinkedHashMap<>();
         before.put("grnNumber", inv.getGrnNumber());
         inv.setGrnNumber(grnNumber);

@@ -370,6 +370,12 @@ export async function recordGrn(id: number, payload: RecordGrnPayload): Promise<
   maybeFail(0.08, 'Validation failed', { grnNumber: 'GRN number is required.' })
 
   const invoice = findInvoiceOrThrow(id)
+  if (!invoice.active) {
+    throw new ApiError(
+      'Invoice is cancelled and its goods-received record cannot be changed. Reactivate it first.',
+      409,
+    )
+  }
   invoice.grnNumber = payload.grnNumber
   invoice.grnReceivedDate = payload.grnReceivedDate
   if (payload.pioNumber) {
