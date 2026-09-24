@@ -23,9 +23,9 @@ public class RoleController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('" + RoleNames.ADMIN + "', '" + RoleNames.SYSTEM_ADMIN + "')")
     public List<RoleResponse> list() {
         return roleService.list().stream().map(RoleResponse::new).toList();
-
     }
 
     @PostMapping
