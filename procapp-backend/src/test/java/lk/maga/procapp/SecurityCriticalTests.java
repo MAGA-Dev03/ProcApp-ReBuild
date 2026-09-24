@@ -296,6 +296,13 @@ public class SecurityCriticalTests {
         Long projectId = project.getId();
         Long supplierId = supplier.getId();
 
+        // Write the fixtures and detach them. Otherwise the managed Invoice
+        // above still points at the Project when the delete request removes
+        // it, and Hibernate 6.6+ refuses to flush that (TransientObjectException).
+        // In production no Invoice is loaded during a project delete.
+        entityManager.flush();
+        entityManager.clear();
+
         String token = tokenFor(admin);
 
         // Supplier is referenced -> must be blocked, not silently orphaned.
@@ -379,7 +386,8 @@ public class SecurityCriticalTests {
 
         // Submitted to finance: delete must be blocked.
         Invoice submittedInvoice = createInvoice(project, supplier, procurementUser, null);
-        submittedInvoice.setListNo("LIST-F10-" + System.nanoTime());
+        // list_no is VARCHAR(20); keep the value short enough to fit.
+        submittedInvoice.setListNo("LF10-" + (System.nanoTime() % 1_000_000_000L));
         invoiceRepository.save(submittedInvoice);
         mockMvc.perform(delete("/api/invoices/" + submittedInvoice.getId())
                         .header("Authorization", "Bearer " + token))
@@ -389,12 +397,15 @@ public class SecurityCriticalTests {
     }
 
     // --- F-13: every invoice mutation must produce an append-only audit row,
-    // readable only by ADMIN, and the row must survive even a hard delete of
-    // the invoice it describes. ---
+    // readable only by SYSTEM_ADMIN (not even ADMIN), and the row must survive
+    // even a hard delete of the invoice it describes. ---
     @Test
-    void invoiceAuditLog_recordsChangesAndIsAdminOnly() throws Exception {
+    void invoiceAuditLog_recordsChangesAndIsSystemAdminOnly() throws Exception {
+        Role systemAdminRole = roleRepository.findByNameIgnoreCase("SYSTEM_ADMIN").orElseThrow();
         Role adminRole = roleRepository.findByNameIgnoreCase("ADMIN").orElseThrow();
         Role procurementRole = roleRepository.findByNameIgnoreCase("PROCUREMENT").orElseThrow();
+        User systemAdmin = createUser(
+                "audit-sysadmin-" + System.nanoTime() + "@test.local", Set.of(systemAdminRole), true, null);
         User admin = createUser("audit-admin-" + System.nanoTime() + "@test.local", Set.of(adminRole), true, null);
         User procurementUser = createUser(
                 "audit-proc-" + System.nanoTime() + "@test.local", Set.of(procurementRole), true, null);
@@ -404,6 +415,7 @@ public class SecurityCriticalTests {
         Invoice invoice = createInvoice(project, supplier, procurementUser, null);
         Long invoiceId = invoice.getId();
 
+        String systemAdminToken = tokenFor(systemAdmin);
         String adminToken = tokenFor(admin);
         String procurementToken = tokenFor(procurementUser);
 
@@ -411,6 +423,12 @@ public class SecurityCriticalTests {
         mockMvc.perform(get("/api/audit-log/invoices")
                         .param("invoiceId", String.valueOf(invoiceId))
                         .header("Authorization", "Bearer " + procurementToken))
+                .andExpect(status().isForbidden());
+
+        // Neither may a regular ADMIN.
+        mockMvc.perform(get("/api/audit-log/invoices")
+                        .param("invoiceId", String.valueOf(invoiceId))
+                        .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isForbidden());
 
         // Plain, untouched invoice -> hard delete is allowed (data-entry mistakes).
@@ -422,7 +440,7 @@ public class SecurityCriticalTests {
         // The audit row must survive the invoice it describes, and record who did it.
         mockMvc.perform(get("/api/audit-log/invoices")
                         .param("invoiceId", String.valueOf(invoiceId))
-                        .header("Authorization", "Bearer " + adminToken))
+                        .header("Authorization", "Bearer " + systemAdminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.content[0].action").value("DELETE"))
