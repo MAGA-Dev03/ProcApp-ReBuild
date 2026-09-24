@@ -44,6 +44,7 @@ public class InvoiceService {
     private final UserRepository userRepository;
     private final InvoiceAuditLogRepository auditLogRepository;
     private final ObjectMapper objectMapper;
+    private final FinanceBatchNumberService financeBatchNumberService;
 
     public InvoiceService(
             InvoiceRepository invoiceRepository,
@@ -52,7 +53,8 @@ public class InvoiceService {
             UserRepository userRepository,
             InvoiceAuditLogRepository auditLogRepository,
             ObjectMapper objectMapper,
-            FileStorageService fileStorageService
+            FileStorageService fileStorageService,
+            FinanceBatchNumberService financeBatchNumberService
     ) {
         this.invoiceRepository = invoiceRepository;
         this.projectRepository = projectRepository;
@@ -61,6 +63,7 @@ public class InvoiceService {
         this.auditLogRepository = auditLogRepository;
         this.objectMapper = objectMapper;
         this.fileStorageService = fileStorageService;
+        this.financeBatchNumberService = financeBatchNumberService;
     }
 
     public Page<Invoice> list(
@@ -424,12 +427,7 @@ public class InvoiceService {
         // listNo and apply it to every invoice in the batch. ---
 
         LocalDate today = LocalDate.now();
-        String monthPrefix = String.format("%04d/%02d/", today.getYear(), today.getMonthValue());
-        long countThisMonth = invoiceRepository.countDistinctListNoWithPrefix(monthPrefix + "%");
-        String listNo = String.format(
-                "%04d/%02d/%02d/%03d",
-                today.getYear(), today.getMonthValue(), today.getDayOfMonth(), countThisMonth + 1
-        );
+        String listNo = financeBatchNumberService.issue(today);
 
         User updatedBy = userRepository.findById(currentUserId).orElse(null);
         OffsetDateTime now = OffsetDateTime.now();

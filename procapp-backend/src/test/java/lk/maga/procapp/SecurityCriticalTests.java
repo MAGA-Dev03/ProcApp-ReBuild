@@ -53,6 +53,7 @@ public class SecurityCriticalTests {
     @Autowired private ProjectRepository projectRepository;
     @Autowired private SupplierRepository supplierRepository;
     @Autowired private InvoiceRepository invoiceRepository;
+    @Autowired private lk.maga.procapp.service.InvoiceService invoiceService;
     @PersistenceContext private EntityManager entityManager;
 
     private String tokenFor(User user ) {
@@ -255,6 +256,30 @@ public class SecurityCriticalTests {
         Invoice after = invoiceRepository.findById(alreadyBatched.getId()).orElseThrow();
         org.junit.jupiter.api.Assertions.assertEquals(originalListNo, after.getListNo(),
                 "An invoice already submitted to finance must not be re-batched with a new list number.");
+    }
+
+    // --- Rule 3c (F-18): A finance batch number is never reused. The old
+    // generator counted distinct list numbers, so clearing a batch lowered
+    // the count and the next batch was issued the cleared batch's number,
+    // merging two unrelated submissions in every report. ---
+    @Test
+    void batchAddToFinance_neverReusesNumberOfAClearedBatch() {
+        Role managerRole = roleRepository.findByNameIgnoreCase("PROCUREMENT_MANAGER").orElseThrow();
+        Project project = createProject("BATCHTEST-" + System.nanoTime());
+        Supplier supplier = createSupplier("BP-BATCH-" + System.nanoTime());
+        User manager = createUser("manager-" + System.nanoTime() + "@test.local", Set.of(managerRole), true, null);
+
+        Invoice first = createInvoice(project, supplier, manager, "GRN-FIRST");
+        Invoice second = createInvoice(project, supplier, manager, "GRN-SECOND");
+
+        String firstListNo = invoiceService.batchAddToFinance(
+                java.util.List.of(first.getId()), manager.getId()).listNo();
+        invoiceService.clearFinanceSubmission(first.getId(), manager.getId());
+        String secondListNo = invoiceService.batchAddToFinance(
+                java.util.List.of(second.getId()), manager.getId()).listNo();
+
+        org.junit.jupiter.api.Assertions.assertNotEquals(firstListNo, secondListNo,
+                "A new finance batch must never be given the number of a batch that was cleared.");
     }
 
         // --- Rule 4: Cascading vs. blocked deletes — projects cascade,
