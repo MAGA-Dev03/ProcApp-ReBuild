@@ -119,6 +119,10 @@ public class InvoiceService {
             fieldErrors.put("remarks", "Only Procurement Manager can set remarks.");
         }
 
+        if (supplier != null && isExactDuplicate(supplier.getId(), req.getInvoiceNumber(), req.getValue(), null)) {
+            fieldErrors.put("invoiceNumber", EXACT_DUPLICATE_MESSAGE);
+        }
+
         if (!fieldErrors.isEmpty()) {
             throw new ValidationException(fieldErrors);
         }
@@ -177,6 +181,10 @@ public class InvoiceService {
             fieldErrors.put("remarks", "Only Procurement Manager can change remarks.");
         }
 
+        if (supplier != null && isExactDuplicate(supplier.getId(), req.getInvoiceNumber(), req.getValue(), id)) {
+            fieldErrors.put("invoiceNumber", EXACT_DUPLICATE_MESSAGE);
+        }
+
         if (!fieldErrors.isEmpty()) {
             throw new ValidationException(fieldErrors);
         }
@@ -222,6 +230,16 @@ public class InvoiceService {
     }
         return invoiceRepository.existsDuplicateExcluding(supplierId, invoiceNumber, excludeInvoiceId);
 }
+
+    private static final String EXACT_DUPLICATE_MESSAGE =
+            "An active invoice with this number and amount already exists for this supplier.";
+
+    /** Enforced (not advisory): same supplier + normalised number + same amount among active invoices. */
+    private boolean isExactDuplicate(Long supplierId, String invoiceNumber, BigDecimal value, Long excludeInvoiceId) {
+        if (invoiceNumber == null || value == null) return false;
+        return invoiceRepository.existsActiveExactDuplicate(
+                supplierId, invoiceNumber, value, excludeInvoiceId != null ? excludeInvoiceId : -1L);
+    }
 
     private boolean isProcurementManager(Collection<? extends GrantedAuthority> authorities) {
         return authorities.stream().anyMatch(a -> a.getAuthority().equals("ROLE_PROCUREMENT_MANAGER"));
@@ -297,6 +315,11 @@ public class InvoiceService {
     @Transactional
     public Invoice activate(Long id, Long currentUserId) {
         Invoice inv = getOrThrow(id);
+        // Otherwise cancel A → re-enter A as B → reactivate A slips past the create check.
+        if (!inv.isActive() && isExactDuplicate(inv.getSupplier().getId(), inv.getInvoiceNumber(), inv.getValue(), id)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Cannot reactivate: " + EXACT_DUPLICATE_MESSAGE);
+        }
         inv.setActive(true);
         inv.setUpdatedBy(userRepository.findById(currentUserId).orElse(null));
         inv.setUpdatedAt(OffsetDateTime.now());

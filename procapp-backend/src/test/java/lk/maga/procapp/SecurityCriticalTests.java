@@ -429,6 +429,71 @@ public class SecurityCriticalTests {
                 .andExpect(jsonPath("$.content[0].performedByUserId").value(procurementUser.getId()));
     }
 
+    // --- F-15: an exact duplicate (same supplier + normalised invoice number +
+    // same amount) must be blocked on the server, not just warned about in
+    // the UI — including via cancel → re-enter → reactivate. ---
+    @Test
+    void exactDuplicateInvoice_isBlockedOnCreateUpdateAndReactivate() throws Exception {
+        Role managerRole = roleRepository.findByNameIgnoreCase("PROCUREMENT_MANAGER").orElseThrow();
+        User procurementUser = createUser(
+                "dup-manager-" + System.nanoTime() + "@test.local", Set.of(managerRole), true, null);
+        String token = tokenFor(procurementUser);
+        Project project = createProject("DUPF15-" + System.nanoTime());
+        Project otherProject = createProject("DUPF15B-" + System.nanoTime());
+        Supplier supplier = createSupplier("BP-DUPF15-" + System.nanoTime());
+
+        Invoice original = createInvoice(project, supplier, procurementUser, null);
+        original.setInvoiceNumber("INV-F15-" + System.nanoTime());
+        invoiceRepository.save(original);
+        String number = original.getInvoiceNumber();
+
+        java.util.function.BiFunction<String, String, String> body = (invoiceNumber, value) -> String.format(
+                "{\"invoiceType\":\"CREDIT\",\"invoiceSource\":\"PROJECT\",\"projectId\":%d,\"supplierId\":%d," +
+                "\"invoiceNumber\":\"%s\",\"invoiceDate\":\"%s\",\"receivedDate\":\"%s\"," +
+                "\"purchaseOrderNumber\":\"PO-TEST\",\"value\":%s}",
+                otherProject.getId(), supplier.getId(), invoiceNumber, LocalDate.now(), LocalDate.now(), value);
+
+        // Same supplier, number differing only in case/whitespace, same amount at a
+        // different scale, different project -> blocked.
+        mockMvc.perform(post("/api/invoices")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content(body.apply("  " + number.toLowerCase() + " ", "1000")))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.fieldErrors.invoiceNumber").exists());
+
+        // Same number, different amount -> still allowed (advisory warning only).
+        String createdJson = mockMvc.perform(post("/api/invoices")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content(body.apply(number, "999.99")))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        Long secondId = objectMapper.readTree(createdJson).get("id").asLong();
+
+        // Editing the second one into an exact copy of the original -> blocked.
+        mockMvc.perform(put("/api/invoices/" + secondId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content(body.apply(number, "1000.00")))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.fieldErrors.invoiceNumber").exists());
+
+        // Cancel the original, re-enter it (allowed: the cancelled copy isn't payable),
+        // then reactivating the original must be refused.
+        mockMvc.perform(post("/api/invoices/" + original.getId() + "/cancel")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/invoices")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content(body.apply(number, "1000.00")))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/invoices/" + original.getId() + "/activate")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isConflict());
+    }
+
     // --- Rule 9 (F-04): A token must stop working the moment the user is
     // deactivated, demoted, changes their password or logs out — not when
     // it happens to expire up to 10 hours later. ---

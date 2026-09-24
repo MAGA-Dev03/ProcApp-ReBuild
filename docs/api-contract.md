@@ -274,9 +274,12 @@ scope — there is no `projectIds` param on the request; scope is derived entire
 - `authorUserId` comes from the authenticated session, never the request body.
 - `projectId` and `supplierId` must reference existing rows (`422` if not).
 - `value` must be `> 0` (`422` if not).
-- `invoiceNumber` uniqueness per supplier is advisory-only (see `GET /api/invoices/check-duplicate`
-  below) — creation is **not** blocked by a duplicate invoice number; only real referential fields
-  are enforced here.
+- An **exact duplicate** is rejected with `422` (`fieldErrors.invoiceNumber`): another *active*
+  invoice with the same `supplierId`, the same case-insensitive/trimmed `invoiceNumber`, and the same
+  `value`. The same rule applies to `PUT /api/invoices/{id}` (excluding the invoice itself) and to
+  `POST /api/invoices/{id}/activate` (`409`). Cancelled invoices don't count.
+- A same-number match with a *different* amount is advisory-only (see
+  `GET /api/invoices/check-duplicate` below) and does not block creation.
 
 **Authorization:** PROCUREMENT, PROCUREMENT_MANAGER.
 
@@ -345,8 +348,9 @@ Query params: `supplierId: number`, `invoiceNumber: string`, `excludeInvoiceId?:
 
 **Business rule:** soft check only. Match is `supplierId` + case-insensitive/trimmed
 `invoiceNumber` equality, excluding `excludeInvoiceId` (used when editing an invoice against
-itself). This never blocks `POST /api/invoices` — it exists purely so the UI can show an inline
-"this looks like a duplicate" warning.
+itself). It exists so the UI can show an inline
+"this looks like a duplicate" warning; the server separately hard-blocks the exact-duplicate case
+(same number **and** amount) — see `POST /api/invoices`.
 
 ### `POST /api/invoices/batch-add-to-finance`
 

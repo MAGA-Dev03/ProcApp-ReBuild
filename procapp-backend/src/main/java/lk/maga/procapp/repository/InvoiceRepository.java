@@ -35,6 +35,21 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long>, JpaSpec
         @Param("excludeInvoiceId") Long excludeInvoiceId
     );
 
+    // Hard duplicate: same supplier + normalised number + same amount, among
+    // active invoices only (a cancelled copy is not payable). The advisory
+    // check above stays number-only; this one is enforced on save.
+    // Pass excludeInvoiceId = -1 on create (ids are always positive).
+    @Query("SELECT COUNT(i) > 0 FROM Invoice i WHERE i.supplier.id = :supplierId " +
+        "AND LOWER(TRIM(i.invoiceNumber)) = LOWER(TRIM(CAST(:invoiceNumber AS string))) " +
+        "AND i.value = :value AND i.active = true " +
+        "AND i.id <> :excludeInvoiceId")
+    boolean existsActiveExactDuplicate(
+        @Param("supplierId") Long supplierId,
+        @Param("invoiceNumber") String invoiceNumber,
+        @Param("value") java.math.BigDecimal value,
+        @Param("excludeInvoiceId") Long excludeInvoiceId
+    );
+
     // Every finance batch number ever assigned, newest first — powers the
     // report screen's List No filter. A dedicated DISTINCT query so the
     // option list is complete regardless of how many invoices exist; the
