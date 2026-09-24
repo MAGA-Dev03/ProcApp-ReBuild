@@ -36,20 +36,20 @@ public class SupplierController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('" + RoleNames.ADMIN + "')")
+    @PreAuthorize("hasAnyRole('" + RoleNames.ADMIN + "', '" + RoleNames.SYSTEM_ADMIN + "')")
     public ResponseEntity<SupplierResponse> create(@Valid @RequestBody SupplierRequest req) {
         Supplier created = supplierService.create(req);
         return ResponseEntity.ok(new SupplierResponse(created));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('" + RoleNames.ADMIN + "')")
+    @PreAuthorize("hasAnyRole('" + RoleNames.ADMIN + "', '" + RoleNames.SYSTEM_ADMIN + "')")
     public SupplierResponse update(@PathVariable Long id, @Valid @RequestBody SupplierRequest req) {
         return new SupplierResponse(supplierService.update(id, req));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('" + RoleNames.ADMIN + "')")
+    @PreAuthorize("hasAnyRole('" + RoleNames.ADMIN + "', '" + RoleNames.SYSTEM_ADMIN + "')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         supplierService.delete(id);
         return ResponseEntity.noContent().build();

@@ -1,5 +1,6 @@
 export const ROLE_NAMES = [
   'ADMIN',
+  'SYSTEM_ADMIN',
   'PROCUREMENT',
   'REPORT_USER',
   'SITE_STORE_KEEPER',

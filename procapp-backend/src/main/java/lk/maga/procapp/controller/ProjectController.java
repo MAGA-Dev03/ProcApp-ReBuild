@@ -38,27 +38,27 @@ public class ProjectController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('" + RoleNames.ADMIN + "')")
+    @PreAuthorize("hasAnyRole('" + RoleNames.ADMIN + "', '" + RoleNames.SYSTEM_ADMIN + "')")
     public ResponseEntity<ProjectResponse> create(@Valid @RequestBody ProjectRequest req) {
         Project created = projectService.create(req);
         return ResponseEntity.ok(new ProjectResponse(created));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('" + RoleNames.ADMIN + "')")
+    @PreAuthorize("hasAnyRole('" + RoleNames.ADMIN + "', '" + RoleNames.SYSTEM_ADMIN + "')")
     public ProjectResponse update(@PathVariable Long id, @Valid @RequestBody ProjectRequest req) {
         return new ProjectResponse(projectService.update(id, req));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('" + RoleNames.ADMIN + "')")
+    @PreAuthorize("hasAnyRole('" + RoleNames.ADMIN + "', '" + RoleNames.SYSTEM_ADMIN + "')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         projectService.delete(id);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}/delete-impact")
-    @PreAuthorize("hasRole('" + RoleNames.ADMIN + "')")
+    @PreAuthorize("hasAnyRole('" + RoleNames.ADMIN + "', '" + RoleNames.SYSTEM_ADMIN + "')")
     public DeleteImpactResponse deleteImpact(@PathVariable Long id) {
         return new DeleteImpactResponse(projectService.deleteImpact(id));
     }

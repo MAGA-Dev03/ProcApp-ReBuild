@@ -54,8 +54,8 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Warehouse,
     roles: ['SITE_STORE_KEEPER'],
   },
-  { to: '/projects', label: 'Projects', icon: FolderKanban, roles: ['ADMIN'] },
-  { to: '/suppliers', label: 'Suppliers', icon: Truck, roles: ['ADMIN'] },
-  { to: '/users', label: 'Users', icon: Users, roles: ['ADMIN'] },
-  { to: '/audit-log', label: 'Audit Log', icon: History, roles: ['ADMIN'] },
+  { to: '/projects', label: 'Projects', icon: FolderKanban, roles: ['ADMIN', 'SYSTEM_ADMIN'] },
+  { to: '/suppliers', label: 'Suppliers', icon: Truck, roles: ['ADMIN', 'SYSTEM_ADMIN'] },
+  { to: '/users', label: 'Users', icon: Users, roles: ['ADMIN', 'SYSTEM_ADMIN'] },
+  { to: '/audit-log', label: 'Audit Log', icon: History, roles: ['SYSTEM_ADMIN'] },
 ]

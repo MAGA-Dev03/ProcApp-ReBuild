@@ -25,7 +25,7 @@ public class UserController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('" + RoleNames.ADMIN + "')")
+    @PreAuthorize("hasAnyRole('" + RoleNames.ADMIN + "', '" + RoleNames.SYSTEM_ADMIN + "')")
     public PageResponse<UserResponse> list(
             @RequestParam(required = false) String search,
             Pageable pageable
@@ -34,26 +34,26 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('" + RoleNames.ADMIN + "')")
+    @PreAuthorize("hasAnyRole('" + RoleNames.ADMIN + "', '" + RoleNames.SYSTEM_ADMIN + "')")
     public UserResponse getOne(@PathVariable Long id) {
         return new UserResponse(userService.getOrThrow(id));
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('" + RoleNames.ADMIN + "')")
+    @PreAuthorize("hasAnyRole('" + RoleNames.ADMIN + "', '" + RoleNames.SYSTEM_ADMIN + "')")
     public ResponseEntity<UserResponse> create(@Valid @RequestBody UserRequest req) {
         User created = userService.create(req);
         return ResponseEntity.ok(new UserResponse(created));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('" + RoleNames.ADMIN + "')")
+    @PreAuthorize("hasAnyRole('" + RoleNames.ADMIN + "', '" + RoleNames.SYSTEM_ADMIN + "')")
     public UserResponse update(@PathVariable Long id, @Valid @RequestBody UserRequest req) {
         return new UserResponse(userService.update(id, req));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('" + RoleNames.ADMIN + "')")
+    @PreAuthorize("hasAnyRole('" + RoleNames.ADMIN + "', '" + RoleNames.SYSTEM_ADMIN + "')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         userService.delete(id);
         return ResponseEntity.noContent().build();

@@ -29,7 +29,7 @@ public class RoleController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('" + RoleNames.ADMIN +"')")
+    @PreAuthorize("hasAnyRole('" + RoleNames.ADMIN + "', '" + RoleNames.SYSTEM_ADMIN + "')")
     public ResponseEntity<RoleResponse> create(@Valid @RequestBody RoleRequest req){
         Role created = roleService.create(req);
         return ResponseEntity.ok(new RoleResponse(created));

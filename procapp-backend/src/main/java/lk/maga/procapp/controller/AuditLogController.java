@@ -14,7 +14,7 @@ import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/audit-log")
-@PreAuthorize("hasRole('" + RoleNames.ADMIN + "')")
+@PreAuthorize("hasRole('" + RoleNames.SYSTEM_ADMIN + "')")
 public class AuditLogController {
 
     private final InvoiceAuditLogService auditLogService;

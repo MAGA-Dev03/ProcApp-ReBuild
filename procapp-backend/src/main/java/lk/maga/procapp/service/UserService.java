@@ -9,6 +9,7 @@ import lk.maga.procapp.exception.ValidationException;
 import lk.maga.procapp.repository.ProjectRepository;
 import lk.maga.procapp.repository.RoleRepository;
 import lk.maga.procapp.repository.UserRepository;
+import lk.maga.procapp.security.RoleNames;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -190,7 +191,13 @@ public class UserService {
                 continue;
             }
             roleRepository.findById(id).ifPresentOrElse(
-                    roles::add,
+                    role -> {
+                        if (RoleNames.SYSTEM_ADMIN.equalsIgnoreCase(role.getName())) {
+                            fieldErrors.put("roleIds", "SYSTEM_ADMIN cannot be assigned through this endpoint.");
+                        } else {
+                            roles.add(role);
+                        }
+                    },
                     () -> fieldErrors.put("roleIds", "Role id " + id + " does not exist.")
             );
         }

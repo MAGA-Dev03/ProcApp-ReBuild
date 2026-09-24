@@ -88,6 +88,7 @@ export function buildUsers(roles: Role[]): User[] {
       active: true,
       roleIds: [
         byName('ADMIN'),
+        byName('SYSTEM_ADMIN'),
         byName('PROCUREMENT'),
         byName('PROCUREMENT_MANAGER'),
         byName('REPORT_USER'),

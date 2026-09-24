@@ -79,7 +79,9 @@ export function UsersPage() {
 
   const roleOptions = useMemo(
     () =>
-      (rolesQuery.data ?? []).map((role: Role) => ({ value: String(role.id), label: role.name })),
+      (rolesQuery.data ?? [])
+        .filter((role: Role) => role.name !== 'SYSTEM_ADMIN')
+        .map((role: Role) => ({ value: String(role.id), label: role.name })),
     [rolesQuery.data],
   )
   const projectOptions = useMemo(
