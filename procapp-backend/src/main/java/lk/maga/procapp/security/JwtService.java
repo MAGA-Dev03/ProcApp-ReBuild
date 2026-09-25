@@ -23,6 +23,11 @@ public class JwtService {
         @Value("${app.jwt.secret}") String secret,
         @Value("${app.jwt.expiration-hours}") long expirationHours
     ){
+        // Refuse to boot with the placeholder from .env.example
+        if (secret.startsWith("changeme")) {
+            throw new IllegalStateException(
+                "JWT_SECRET is still the .env.example placeholder; generate a real key");
+        }
         this.key = Keys.hmacShaKeyFor(secret.getBytes());
         this.expirationHours = expirationHours;
     }

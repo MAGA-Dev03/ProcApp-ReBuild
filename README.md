@@ -36,7 +36,7 @@ defaults are for local development. Do not edit `application.yml` to deploy.
 | Variable | Default | Production |
 | --- | --- | --- |
 | `DB_PASSWORD` | none, required | Required |
-| `JWT_SECRET` | none, required | Required. Use a long random value that is unique to the environment |
+| `JWT_SECRET` | none, required | Required. Use a long random value that is unique to the environment, e.g. `openssl rand -base64 64`. Never commit it |
 | `DB_URL` | `jdbc:postgresql://localhost:5432/procapp` | Set to the production database |
 | `DB_USERNAME` | `postgres` | Set to a dedicated application user, not `postgres` |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Set to the frontend's public origin, e.g. `https://procapp.example.com`. Separate multiple origins with commas. If this is wrong, the browser blocks every API call |
