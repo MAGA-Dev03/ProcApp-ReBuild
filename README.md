@@ -26,6 +26,31 @@ cd procapp-backend
 ./mvnw spring-boot:run
 ```
 
+### Configuration
+
+The backend reads every environment-specific setting from an environment
+variable (see
+[`application.yml`](procapp-backend/src/main/resources/application.yml)). The
+defaults are for local development. Do not edit `application.yml` to deploy.
+
+| Variable | Default | Production |
+| --- | --- | --- |
+| `DB_PASSWORD` | none, required | Required |
+| `JWT_SECRET` | none, required | Required. Use a long random value that is unique to the environment |
+| `DB_URL` | `jdbc:postgresql://localhost:5432/procapp` | Set to the production database |
+| `DB_USERNAME` | `postgres` | Set to a dedicated application user, not `postgres` |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Set to the frontend's public origin, e.g. `https://procapp.example.com`. Separate multiple origins with commas. If this is wrong, the browser blocks every API call |
+| `SERVER_PORT` | `8080` | Set if the host or proxy expects another port |
+| `ATTACHMENTS_DIR` | `C:/procapp-data/attachments` | Set to a persistent, backed-up folder |
+
+Production deployment checklist:
+
+1. Set every variable in the "Production" column. Do not rely on the defaults.
+2. Make sure `CORS_ALLOWED_ORIGINS` matches the URL users open, including the
+   scheme and any port.
+3. Make sure the database user can create and alter tables. Flyway applies
+   migrations on startup.
+
 ### Database schema changes
 
 The PostgreSQL schema is managed by Flyway. Migrations are in
