@@ -37,10 +37,9 @@ export const invoiceFormSchema = z.object({
     .optional()
     .refine((v) => v !== undefined, { message: 'Value is required' })
     .refine((v) => v === undefined || v > 0, { message: 'Value must be greater than zero' }),
-  pioNumber: z
-    .string()
-    .min(1, 'PIO number is required')
-    .regex(REFERENCE_NUMBER_PATTERN, REFERENCE_NUMBER_MESSAGE),
+  // Optional: some invoices don't have a PIO number yet when first added; it can be
+  // filled in later (edit, or the Add GRN step).
+  pioNumber: z.string().regex(REFERENCE_NUMBER_PATTERN, REFERENCE_NUMBER_MESSAGE),
   grnNumber: z.string().regex(REFERENCE_NUMBER_PATTERN, REFERENCE_NUMBER_MESSAGE).optional(),
   grnReceivedDate: z.string().optional(),
   attachment: z.instanceof(File).nullable().optional(),

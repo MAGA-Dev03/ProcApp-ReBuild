@@ -338,7 +338,7 @@ export function InvoiceFormFields({
           required
           disabled={readOnly}
         />
-        <TextField control={control} name="pioNumber" label="PIO No" required disabled={readOnly} />
+        <TextField control={control} name="pioNumber" label="PIO No" disabled={readOnly} />
         <TextField control={control} name="grnNumber" label="GRN No" disabled={readOnly} />
         <DatePickerField
           control={control}
