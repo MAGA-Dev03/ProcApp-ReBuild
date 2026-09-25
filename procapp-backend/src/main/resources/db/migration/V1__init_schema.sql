@@ -1,5 +1,5 @@
 -- ProcApp initial schema (PostgreSQL)
--- Apply this BEFORE running procapp_migration.sql
+-- Legacy-import columns (the old, never-committed procapp_migration.sql) are in V6.
 
 CREATE TABLE projects (
   id BIGSERIAL PRIMARY KEY,

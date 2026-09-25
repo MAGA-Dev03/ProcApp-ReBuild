@@ -8,7 +8,14 @@ spring:
       ddl-auto: validate   # schema comes from Flyway/your SQL files, never auto-generated
     open-in-view: false
   flyway:
-    enabled: false   # you already applied V1__init_schema.sql manually via pgAdmin
+    enabled: true
+    # Databases built by hand in pgAdmin before Flyway was enabled have no
+    # flyway_schema_history table. On first start Flyway records them as
+    # being at V5 (verified against V1-V5 by schema diff) and applies V6+.
+    # An empty database gets every migration from V1.
+    baseline-on-migrate: true
+    baseline-version: 5
+    baseline-description: Pre-Flyway schema applied by hand
   servlet:
     multipart:
       max-file-size: 10MB
