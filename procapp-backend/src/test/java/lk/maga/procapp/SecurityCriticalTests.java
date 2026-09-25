@@ -630,6 +630,43 @@ public class SecurityCriticalTests {
     }
 
     @Test
+    void adminUpdateIsPartialAndKeepsOmittedFields() throws Exception {
+        Role adminRole = roleRepository.findByNameIgnoreCase("ADMIN").orElseThrow();
+        Role procurementRole = roleRepository.findByNameIgnoreCase("PROCUREMENT").orElseThrow();
+        Project project = createProject("PU" + (System.nanoTime() % 100000));
+        User admin = createUser("admin-" + System.nanoTime() + "@test.local", Set.of(adminRole), true, null);
+        User target = createUser("partial-" + System.nanoTime() + "@test.local",
+                new HashSet<>(Set.of(adminRole)), false, new HashSet<>(Set.of(project)));
+        String originalEmail = target.getEmail();
+
+        // Roles only — no name, no email, no projects.
+        mockMvc.perform(put("/api/users/" + target.getId())
+                        .header("Authorization", "Bearer " + tokenFor(admin))
+                        .contentType("application/json")
+                        .content("{\"roleIds\":[" + procurementRole.getId() + "]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Test User"))
+                .andExpect(jsonPath("$.email").value(originalEmail))
+                .andExpect(jsonPath("$.allProjects").value(false))
+                .andExpect(jsonPath("$.roles.length()").value(1))
+                .andExpect(jsonPath("$.roles[0].name").value("PROCUREMENT"))
+                .andExpect(jsonPath("$.projects.length()").value(1));
+    }
+
+    @Test
+    void adminUpdateRejectsBlankNameOrEmailWhenSent() throws Exception {
+        Role adminRole = roleRepository.findByNameIgnoreCase("ADMIN").orElseThrow();
+        User admin = createUser("admin-" + System.nanoTime() + "@test.local", Set.of(adminRole), true, null);
+        User target = createUser("blank-" + System.nanoTime() + "@test.local", Set.of(adminRole), true, null);
+
+        mockMvc.perform(put("/api/users/" + target.getId())
+                        .header("Authorization", "Bearer " + tokenFor(admin))
+                        .contentType("application/json")
+                        .content("{\"name\":\"  \",\"email\":\"\"}"))
+                .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
     void logoutRevokesTokenServerSide() throws Exception {
         Role adminRole = roleRepository.findByNameIgnoreCase("ADMIN").orElseThrow();
         User user = createUser("logout-" + System.nanoTime() + "@test.local", Set.of(adminRole), true, null);

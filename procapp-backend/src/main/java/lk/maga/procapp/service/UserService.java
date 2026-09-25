@@ -2,6 +2,7 @@ package lk.maga.procapp.service;
 
 import lk.maga.procapp.dto.MeUpdateRequest;
 import lk.maga.procapp.dto.UserRequest;
+import lk.maga.procapp.dto.UserUpdateRequest;
 import lk.maga.procapp.entity.Project;
 import lk.maga.procapp.entity.Role;
 import lk.maga.procapp.entity.User;
@@ -97,16 +98,28 @@ public class UserService {
     }
 
     @Transactional
-    public User update(Long id, UserRequest req) {
+    public User update(Long id, UserUpdateRequest req) {
         User u = getOrThrow(id);
         Map<String, String> fieldErrors = new HashMap<>();
 
-        if (userRepository.existsByEmailIgnoreCaseAndIdNot(req.getEmail(), id)) {
-            fieldErrors.put("email", "A user with this email already exists.");
+        // Partial update: every null field keeps its current value.
+        if (req.getName() != null && req.getName().isBlank()) {
+            fieldErrors.put("name", "Name must not be blank.");
+        }
+        if (req.getEmail() != null) {
+            if (req.getEmail().isBlank()) {
+                fieldErrors.put("email", "Email must not be blank.");
+            } else if (userRepository.existsByEmailIgnoreCaseAndIdNot(req.getEmail(), id)) {
+                fieldErrors.put("email", "A user with this email already exists.");
+            }
         }
 
-        Set<Role> roles = resolveRoles(req.getRoleIds(), fieldErrors);
-        Set<Project> projects = resolveProjects(req.getProjectIds(), fieldErrors);
+        Set<Role> roles = req.getRoleIds() != null
+                ? resolveRoles(req.getRoleIds(), fieldErrors)
+                : u.getRoles();
+        Set<Project> projects = req.getProjectIds() != null
+                ? resolveProjects(req.getProjectIds(), fieldErrors)
+                : u.getProjects();
 
         boolean changingPassword = req.getPassword() != null && !req.getPassword().isBlank();
         if (changingPassword) {
@@ -125,18 +138,31 @@ public class UserService {
             u.setTokenVersion(u.getTokenVersion() + 1);
         }
 
-        u.setName(req.getName());
-        u.setEmail(req.getEmail());
+        if (req.getName() != null) {
+            u.setName(req.getName());
+        }
+        if (req.getEmail() != null) {
+            u.setEmail(req.getEmail());
+        }
         // Blank/omitted password = keep the existing hash untouched.
         if (changingPassword) {
             u.setPasswordHash(passwordEncoder.encode(req.getPassword()));
         }
-        u.setAllProjects(req.isAllProjects());
         if (req.getActive() != null) {
             u.setActive(req.getActive());
         }
-        u.setRoles(roles);
-        u.setProjects(req.isAllProjects() ? new HashSet<>() : projects);
+        if (req.getRoleIds() != null) {
+            u.setRoles(roles);
+        }
+        if (req.getAllProjects() != null) {
+            u.setAllProjects(req.getAllProjects());
+        }
+        // allProjects: true ignores projectIds entirely, per the contract.
+        if (u.isAllProjects()) {
+            u.setProjects(new HashSet<>());
+        } else if (req.getProjectIds() != null) {
+            u.setProjects(projects);
+        }
 
         return userRepository.save(u);
     }

@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import lk.maga.procapp.dto.MeUpdateRequest;
 import lk.maga.procapp.dto.PageResponse;
 import lk.maga.procapp.dto.UserRequest;
+import lk.maga.procapp.dto.UserUpdateRequest;
 import lk.maga.procapp.dto.UserResponse;
 import lk.maga.procapp.entity.User;
 import lk.maga.procapp.security.RoleNames;
@@ -48,7 +49,7 @@ public class UserController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('" + RoleNames.ADMIN + "', '" + RoleNames.SYSTEM_ADMIN + "')")
-    public UserResponse update(@PathVariable Long id, @Valid @RequestBody UserRequest req) {
+    public UserResponse update(@PathVariable Long id, @Valid @RequestBody UserUpdateRequest req) {
         return new UserResponse(userService.update(id, req));
     }
 

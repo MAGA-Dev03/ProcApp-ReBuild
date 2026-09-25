@@ -19,9 +19,9 @@ public class UserRequest {
     @Email
     private String email;
 
-    // Required on create, optional on update (blank/null = keep existing
-    // hash). Enforced in the service layer, not here, since the same DTO
-    // serves both operations with different rules.
+    // Required. Checked in the service layer (alongside the strength rules)
+    // so it comes back as a field error. Used for create only; updates use
+    // UserUpdateRequest.
     private String password;
 
     private boolean allProjects;

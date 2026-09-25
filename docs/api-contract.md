@@ -542,9 +542,12 @@ Query params: `role?: RoleName` (one of the six well-known names), `active?: boo
 
 ### `PUT /api/users/{id}`
 
-**Request body:** same shape as create, all fields optional, `password` omitted/blank = keep the
-existing password unchanged (do not overwrite it with an empty string). Same uniqueness/id-existence
-and zero-roles/zero-projects rules as create apply here too.
+**Request body:** same shape as create, all fields optional — this is a partial update. An omitted
+(or `null`) field keeps its current value; in particular, omitting `roleIds`/`projectIds` leaves the
+user's roles/projects untouched, while an explicit `[]` clears them. `password` omitted/blank = keep the
+existing password unchanged (do not overwrite it with an empty string). `name`/`email`, when sent,
+must not be blank (`422`). Same uniqueness/id-existence and zero-roles/zero-projects rules as create
+apply here too.
 
 **Response `200`:** `User`. **Errors:** `404`, `422`.
 
