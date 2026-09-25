@@ -1,0 +1,34 @@
+# Test-only config. Mirrors src/main/resources/application.yml but supplies the
+# secrets that are normally injected via .vscode/launch.json env vars, which the
+# JUnit runner does not get. These regression tests run against the real local
+# Postgres DB (schema validate, Flyway off) inside a per-test rolled-back
+# transaction, so they never mutate the migrated dataset.
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/procapp
+    username: postgres
+    password: ${DB_PASSWORD:dev03}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: false
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+app:
+  jwt:
+    # Fixed, test-only key. Deliberately not read from JWT_SECRET so a real key
+    # never ends up signing test tokens. Never use this value outside tests.
+    secret: test-only-jwt-key-not-for-any-real-environment
+    expiration-hours: 10
+  storage:
+    attachments-dir: ${ATTACHMENTS_DIR:C:/procapp-data/attachments}
+  cors:
+    allowed-origins: http://localhost:5173
+
+server:
+  port: 8080

@@ -274,9 +274,12 @@ scope — there is no `projectIds` param on the request; scope is derived entire
 - `authorUserId` comes from the authenticated session, never the request body.
 - `projectId` and `supplierId` must reference existing rows (`422` if not).
 - `value` must be `> 0` (`422` if not).
-- `invoiceNumber` uniqueness per supplier is advisory-only (see `GET /api/invoices/check-duplicate`
-  below) — creation is **not** blocked by a duplicate invoice number; only real referential fields
-  are enforced here.
+- An **exact duplicate** is rejected with `422` (`fieldErrors.invoiceNumber`): another *active*
+  invoice with the same `supplierId`, the same case-insensitive/trimmed `invoiceNumber`, and the same
+  `value`. The same rule applies to `PUT /api/invoices/{id}` (excluding the invoice itself) and to
+  `POST /api/invoices/{id}/activate` (`409`). Cancelled invoices don't count.
+- A same-number match with a *different* amount is advisory-only (see
+  `GET /api/invoices/check-duplicate` below) and does not block creation.
 
 **Authorization:** PROCUREMENT, PROCUREMENT_MANAGER.
 
@@ -345,8 +348,9 @@ Query params: `supplierId: number`, `invoiceNumber: string`, `excludeInvoiceId?:
 
 **Business rule:** soft check only. Match is `supplierId` + case-insensitive/trimmed
 `invoiceNumber` equality, excluding `excludeInvoiceId` (used when editing an invoice against
-itself). This never blocks `POST /api/invoices` — it exists purely so the UI can show an inline
-"this looks like a duplicate" warning.
+itself). It exists so the UI can show an inline
+"this looks like a duplicate" warning; the server separately hard-blocks the exact-duplicate case
+(same number **and** amount) — see `POST /api/invoices`.
 
 ### `POST /api/invoices/batch-add-to-finance`
 
@@ -538,9 +542,12 @@ Query params: `role?: RoleName` (one of the six well-known names), `active?: boo
 
 ### `PUT /api/users/{id}`
 
-**Request body:** same shape as create, all fields optional, `password` omitted/blank = keep the
-existing password unchanged (do not overwrite it with an empty string). Same uniqueness/id-existence
-and zero-roles/zero-projects rules as create apply here too.
+**Request body:** same shape as create, all fields optional — this is a partial update. An omitted
+(or `null`) field keeps its current value; in particular, omitting `roleIds`/`projectIds` leaves the
+user's roles/projects untouched, while an explicit `[]` clears them. `password` omitted/blank = keep the
+existing password unchanged (do not overwrite it with an empty string). `name`/`email`, when sent,
+must not be blank (`422`). Same uniqueness/id-existence and zero-roles/zero-projects rules as create
+apply here too.
 
 **Response `200`:** `User`. **Errors:** `404`, `422`.
 
@@ -657,6 +664,58 @@ months (oldest first), each `{ month: "YYYY-MM", monthLabel: "Jan 2026", receive
 month of `financeSubmitDate` (only for invoices that have one). Months with no activity must still
 appear with zero values — this is a fixed trailing-12-month window, not a sparse map keyed by
 whichever months happen to have data.
+
+**Authorization:** SENIOR_MANAGER.
+
+### `GET /api/dashboard/summary`
+
+**Response `200`:**
+```ts
+interface DashboardSummary {
+  outstandingValue: number       // sum of value where active && listNo is null
+  grnPendingCount: number        // count where active && (grnNumber or grnReceivedDate is null)
+  readyToSubmitCount: number     // count where active && grnNumber && grnReceivedDate && listNo is null
+  submittedThisMonthValue: number // sum of value where financeSubmitDate falls in the current calendar month
+}
+```
+
+**Authorization:** SENIOR_MANAGER.
+
+### `GET /api/dashboard/cycle-time`
+
+**Response `200`:**
+```ts
+interface CycleTimeStats {
+  averageDays: number                    // avg (financeSubmitDate - receivedDate) over all-time
+                                          // submitted invoices; 0 if none exist yet (not null - a
+                                          // brand-new deployment is a genuine edge case, and 0 is a
+                                          // safe, honest fallback for it)
+  currentMonthAverageDays: number | null  // same average, scoped to invoices whose financeSubmitDate
+                                          // falls in the current calendar month; null if none
+  previousMonthAverageDays: number | null // same, scoped to the previous calendar month; null if none
+}
+```
+
+**Business rule:** `null` (not `0`) for a month with zero submissions — the UI skips the trend
+comparison line rather than plotting a misleading zero. Don't collapse the null case to `0`.
+
+**Authorization:** SENIOR_MANAGER.
+
+### `GET /api/dashboard/monthly-volume`
+
+**Response `200`:** `MonthlyInvoiceVolume[]`, always exactly 12 entries covering the trailing 12
+calendar months (oldest first, same fixed window as the trend endpoint above), each
+`{ month: "YYYY-MM", monthLabel: "Jan 2026", invoiceCount }`. `invoiceCount` is grouped by the month
+of `receivedDate`, across **all** invoices regardless of `active` — a cancelled invoice still counts
+toward the month it was received in. Months with no activity must still appear with `invoiceCount: 0`.
+
+**Authorization:** SENIOR_MANAGER.
+
+### `GET /api/dashboard/recent-finance-batches?limit=10`
+
+**Response `200`:** `FinanceBatchSummary[]`, `{ listNo, financeSubmitDate, invoiceCount, totalValue }`
+— one entry per distinct `listNo` among invoices that have both `listNo` and `financeSubmitDate`
+set, sorted by `financeSubmitDate` descending, truncated to `limit` (default 10).
 
 **Authorization:** SENIOR_MANAGER.
 

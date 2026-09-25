@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ProcApp — Invoice Management System</title>
+    <!-- Blocks injected/attacker scripts from running in this origin (e.g. via a
+         stored-XSS payload) even if one slips past other defenses. Only 'self'
+         script/style sources and the known API origin are allowed; update
+         connect-src if the API origin changes. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' http://localhost:8080; object-src 'none'; base-uri 'self'; frame-ancestors 'self';"
+    />
+    <script src="/spa-redirect.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
